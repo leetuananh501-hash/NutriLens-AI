@@ -85,16 +85,14 @@ async function callGeminiWithRetry(params: {
   systemInstruction: string;
   responseSchema: any;
 }) {
-  // Cascading official models:
-  // 1. gemini-2.5-flash: high accuracy, sub-2s response
-  // 2. gemini-2.0-flash: fast multimodal fallback
-  // 3. gemini-1.5-flash: dependable ultra-fast fallback
-  // 4. gemini-flash-latest: alias fallback
+  // Cascading official models (Fast, supported, zero thinkingConfig):
+  // 1. gemini-3.8-flash: Official current flagship flash model (fast, sub-2s response, no thinkingConfig)
+  // 2. gemini-flash-latest: Canonical alias for latest flash model
+  // 3. gemini-3.1-flash-lite: Ultra-fast low-latency fallback
   const modelsToTry: string[] = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
+    'gemini-3.8-flash',
     'gemini-flash-latest',
+    'gemini-3.1-flash-lite',
   ];
 
   let lastError: any = null;
