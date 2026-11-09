@@ -163,9 +163,9 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
     setErrorMsg(null);
     setSavedSuccess(false);
 
-    // Hard 12-second client-side timeout to prevent any infinite spinner
+    // Hard 10-second client-side timeout to prevent any infinite spinner
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const response = await fetch('/api/analyze-label', {

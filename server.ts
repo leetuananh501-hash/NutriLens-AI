@@ -79,7 +79,7 @@ function formatGeminiErrorMessage(error: any): string {
   return 'Không thể kết nối đến máy chủ AI. Vui lòng bấm Thử lại sau giây lát.';
 }
 
-// Timeout helper for Promise.race to guarantee server never hangs more than 9 seconds
+// Timeout helper for Promise.race to guarantee server never hangs more than 5 seconds
 function timeoutPromise(ms: number): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => {
@@ -88,17 +88,15 @@ function timeoutPromise(ms: number): Promise<never> {
   });
 }
 
-// Helper function to call Gemini API with cascading fast models (sub-2s latency, 9s hard timeout)
+// Helper function to call Gemini API with cascading fast models (sub-2s latency, 5s hard timeout)
 async function callGeminiWithRetry(params: {
   contents: any;
   systemInstruction: string;
   responseSchema: any;
 }) {
   const modelsToTry: { name: string }[] = [
-    { name: 'gemini-2.0-flash' },
-    { name: 'gemini-1.5-flash' },
     { name: 'gemini-3.8-flash' },
-    { name: 'gemini-flash-latest' },
+    { name: 'gemini-3.1-flash-lite' },
   ];
 
   let lastError: any = null;
@@ -121,7 +119,7 @@ async function callGeminiWithRetry(params: {
 
       const response: any = await Promise.race([
         generatePromise,
-        timeoutPromise(9000),
+        timeoutPromise(5000),
       ]);
 
       if (response && response.text) {
@@ -145,13 +143,13 @@ async function callGeminiWithRetry(params: {
       // If it's 503 high demand or 429 quota, immediately cascade to next model
       if (isHighDemandOrQuota) {
         console.warn(`[Gemini] Fast-switching from ${model.name} to next model due to capacity limit...`);
-        // Small 200ms breather before next model
-        await new Promise((r) => setTimeout(r, 200));
+        // Small 100ms breather before next model
+        await new Promise((r) => setTimeout(r, 100));
         continue;
       }
 
-      // For timeout or other errors, brief 200ms delay and continue
-      await new Promise((r) => setTimeout(r, 200));
+      // For timeout or other errors, brief 100ms delay and continue
+      await new Promise((r) => setTimeout(r, 100));
     }
   }
 
