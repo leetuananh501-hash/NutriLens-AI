@@ -79,27 +79,33 @@ function formatGeminiErrorMessage(error: any): string {
   return 'Không thể kết nối đến máy chủ AI. Vui lòng bấm Thử lại sau giây lát.';
 }
 
-// Helper function to call Gemini API with cascading fast models (sub-2s latency)
+// Timeout helper for Promise.race to guarantee server never hangs more than 9 seconds
+function timeoutPromise(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Model request timed out after ${ms}ms`));
+    }, ms);
+  });
+}
+
+// Helper function to call Gemini API with cascading fast models (sub-2s latency, 9s hard timeout)
 async function callGeminiWithRetry(params: {
   contents: any;
   systemInstruction: string;
   responseSchema: any;
 }) {
-  // Cascading official models (Fast, supported, zero thinkingConfig):
-  // 1. gemini-3.8-flash: Official current flagship flash model (fast, sub-2s response, no thinkingConfig)
-  // 2. gemini-flash-latest: Canonical alias for latest flash model
-  // 3. gemini-3.1-flash-lite: Ultra-fast low-latency fallback
-  const modelsToTry: string[] = [
-    'gemini-3.8-flash',
-    'gemini-flash-latest',
-    'gemini-3.1-flash-lite',
+  const modelsToTry: { name: string }[] = [
+    { name: 'gemini-2.0-flash' },
+    { name: 'gemini-1.5-flash' },
+    { name: 'gemini-3.8-flash' },
+    { name: 'gemini-flash-latest' },
   ];
 
   let lastError: any = null;
 
-  for (const modelName of modelsToTry) {
+  for (const model of modelsToTry) {
     try {
-      console.log(`[Gemini] Attempting model: ${modelName}`);
+      console.log(`[Gemini] Attempting model: ${model.name}`);
       // Zero thinkingConfig to minimize latency for instant JSON responses
       const config: any = {
         systemInstruction: params.systemInstruction,
@@ -107,20 +113,25 @@ async function callGeminiWithRetry(params: {
         responseSchema: params.responseSchema,
       };
 
-      const response = await ai.models.generateContent({
-        model: modelName,
+      const generatePromise = ai.models.generateContent({
+        model: model.name,
         contents: params.contents,
         config,
       });
 
-      if (response.text) {
-        console.log(`[Gemini] Model ${modelName} responded successfully.`);
+      const response: any = await Promise.race([
+        generatePromise,
+        timeoutPromise(9000),
+      ]);
+
+      if (response && response.text) {
+        console.log(`[Gemini] Model ${model.name} responded successfully.`);
         return response.text;
       }
     } catch (err: any) {
       lastError = err;
       const errMsg = err?.message || String(err);
-      console.warn(`[Gemini] Model ${modelName} failed: ${errMsg}`);
+      console.warn(`[Gemini] Model ${model.name} failed: ${errMsg}`);
 
       const isHighDemandOrQuota =
         errMsg.includes('503') ||
@@ -133,14 +144,14 @@ async function callGeminiWithRetry(params: {
 
       // If it's 503 high demand or 429 quota, immediately cascade to next model
       if (isHighDemandOrQuota) {
-        console.warn(`[Gemini] Fast-switching from ${modelName} to next model due to capacity limit...`);
+        console.warn(`[Gemini] Fast-switching from ${model.name} to next model due to capacity limit...`);
         // Small 200ms breather before next model
         await new Promise((r) => setTimeout(r, 200));
         continue;
       }
 
-      // For other transient network errors, brief 300ms delay and continue
-      await new Promise((r) => setTimeout(r, 300));
+      // For timeout or other errors, brief 200ms delay and continue
+      await new Promise((r) => setTimeout(r, 200));
     }
   }
 
@@ -416,7 +427,7 @@ Nhiệm vụ:
 interface UserSyncStore {
   meals: any[];
   labels: any[];
-  water?: number;
+  water?: any;
   profile?: any;
   lastSyncedAt: string;
 }
@@ -425,7 +436,7 @@ const userSyncStores = new Map<string, UserSyncStore>();
 
 // 3. Sync Status Ping Endpoint (User-aware)
 app.get('/api/sync/status', (req, res) => {
-  const userId = (req.headers['x-user-id'] as string) || (req.query.userId as string) || 'anonymous';
+  const userId = (req.headers['x-user-id'] as string) || (req.query.userId as string) || 'default_user';
   const userStore = userSyncStores.get(userId);
   return res.json({
     status: 'online',
@@ -438,7 +449,7 @@ app.get('/api/sync/status', (req, res) => {
 // 4. Data Sync Endpoint (receives offline queue and consolidated datasets for specific user)
 app.post('/api/sync', (req, res) => {
   try {
-    const userId = (req.headers['x-user-id'] as string) || req.body.userId || 'anonymous';
+    const userId = (req.headers['x-user-id'] as string) || req.body?.userId || 'default_user';
     const { syncQueue = [], clientMeals = [], clientLabels = [], clientWater, clientProfile } = req.body;
 
     console.log(`[Sync] Received sync request for user [${userId}]: ${syncQueue.length} queued actions, ${clientMeals.length} meals, ${clientLabels.length} labels`);

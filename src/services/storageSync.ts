@@ -18,18 +18,6 @@ export const STORAGE_KEYS = {
   USER_ID: 'nutrilens_user_id',
 } as const;
 
-// Get or generate a persistent local-first unique user ID
-export function getOrCreateUserId(): string {
-  let uid = localStorage.getItem(STORAGE_KEYS.USER_ID);
-  if (!uid) {
-    uid = (typeof crypto !== 'undefined' && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    localStorage.setItem(STORAGE_KEYS.USER_ID, uid);
-  }
-  return uid;
-}
-
 // Safe localStorage helper with quota protection
 export const storage = {
   get: <T>(key: string, defaultValue: T): T => {
@@ -61,6 +49,18 @@ export const storage = {
     }
   },
 };
+
+// Get or generate a persistent local-first unique user ID
+export function getOrCreateUserId(): string {
+  let uid = storage.get<string | null>(STORAGE_KEYS.USER_ID, null);
+  if (!uid || typeof uid !== 'string' || uid.trim() === '') {
+    uid = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    storage.set(STORAGE_KEYS.USER_ID, uid);
+  }
+  return uid;
+}
 
 // Queue operations for offline mutations
 export const getSyncQueue = (): SyncAction[] => {

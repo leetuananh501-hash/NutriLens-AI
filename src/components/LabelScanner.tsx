@@ -163,6 +163,10 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
     setErrorMsg(null);
     setSavedSuccess(false);
 
+    // Hard 12-second client-side timeout to prevent any infinite spinner
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     try {
       const response = await fetch('/api/analyze-label', {
         method: 'POST',
@@ -172,7 +176,10 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
           mimeType: imageMime,
           productNameHint: productHint,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const responseText = await response.text();
       let data: ProductLabelAnalysis | null = null;
@@ -194,10 +201,12 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
         setAnalysisResult(fallback);
       }
     } catch (err: any) {
-      console.warn('[LabelScanner] Network fetch failed, falling back to local additives engine:', err);
+      clearTimeout(timeoutId);
+      console.warn('[LabelScanner] Network fetch failed or timed out, falling back to local additives engine:', err?.message || err);
       const fallback = estimateProductLabel(productHint, selectedImage || undefined);
       setAnalysisResult(fallback);
     } finally {
+      clearTimeout(timeoutId);
       setIsScanning(false);
     }
   };

@@ -173,6 +173,10 @@ export const MealScanner: React.FC<MealScannerProps> = ({
     setErrorMsg(null);
     setSavedSuccess(false);
 
+    // Hard 12-second client-side timeout to prevent any infinite spinner
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
     try {
       const response = await fetch('/api/analyze-meal', {
         method: 'POST',
@@ -182,7 +186,10 @@ export const MealScanner: React.FC<MealScannerProps> = ({
           mimeType: imageMime,
           description: textDescription,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const responseText = await response.text();
       let data: AnalyzedMeal | null = null;
@@ -210,12 +217,15 @@ export const MealScanner: React.FC<MealScannerProps> = ({
         setPortionScale(1.0);
       }
     } catch (err: any) {
-      console.warn('[MealScanner] Network fetch failed, falling back to local nutrition engine:', err);
+      clearTimeout(timeoutId);
+      console.warn('[MealScanner] Network fetch failed or timed out, falling back to local nutrition engine:', err?.message || err);
+      // Instant intelligent fallback so user never experiences an infinite freeze
       const fallback = estimateMealNutrition(textDescription, selectedImage || undefined);
       setBaseMealData(JSON.parse(JSON.stringify(fallback)));
       setAnalyzedMeal(fallback);
       setPortionScale(1.0);
     } finally {
+      clearTimeout(timeoutId);
       setIsScanning(false);
     }
   };
