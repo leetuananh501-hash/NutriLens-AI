@@ -1,0 +1,6 @@
+{
+  "name": "NutriLens - AI Calorie & Product Ingredient Decrypter",
+  "description": "Ứng dụng nhận diện calo bữa ăn thông minh và giải mã nhãn hóa chất, phụ gia thực phẩm đưa ra khuyến nghị mua sắm.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

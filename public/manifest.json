@@ -1,0 +1,25 @@
+{
+  "short_name": "NutriLens",
+  "name": "NutriLens - Soi Calo & Giải Mã Phụ Gia",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#62793b",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "vi"
+}

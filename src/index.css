@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Deliciously Ella signature warm botanical palette */
+  --color-sage-50: #f5f7f5;
+  --color-sage-100: #e7ece7;
+  --color-sage-200: #d0dad0;
+  --color-sage-300: #adc0ad;
+  --color-sage-400: #86a286;
+  --color-sage-500: #5f8060;
+  --color-sage-600: #4a674b;
+  --color-sage-700: #3a503b;
+  --color-sage-800: #2c3c2d;
+  --color-sage-900: #233024;
+  --color-sage-950: #121b13;
+
+  --color-terracotta-500: #c86446;
+  --color-terracotta-600: #b35235;
+
+  --color-honey-500: #dda15e;
+
+  /* Seamless emerald mapping to deep organic forest sage */
+  --color-emerald-50: #f5f7f5;
+  --color-emerald-100: #e7ece7;
+  --color-emerald-200: #d0dad0;
+  --color-emerald-300: #adc0ad;
+  --color-emerald-400: #86a286;
+  --color-emerald-500: #5f8060;
+  --color-emerald-600: #3d5c4e;
+  --color-emerald-700: #2e473b;
+  --color-emerald-800: #23372e;
+  --color-emerald-900: #1a2922;
+  --color-emerald-950: #0d1612;
+
+  /* Harmonize slate: warm earthy basalt & dark forest graphite neutrals (replaces cold blue slate) */
+  --color-slate-50: #faf8f5;
+  --color-slate-100: #f2ede4;
+  --color-slate-200: #e5ded3;
+  --color-slate-300: #cebeaf;
+  --color-slate-400: #9e9386;
+  --color-slate-500: #736b60;
+  --color-slate-600: #524d45;
+  --color-slate-700: #323b35;
+  --color-slate-800: #222924;
+  --color-slate-900: #181f1b;
+  --color-slate-950: #101412;
+
+  /* Harmonize sky & blue tokens into mineral sage aqua & deep herbal pine (eliminates clashing blue in dark mode) */
+  --color-sky-50: #f2f6f4;
+  --color-sky-100: #e2ede8;
+  --color-sky-200: #c5dcd3;
+  --color-sky-300: #9ec3b5;
+  --color-sky-400: #70a492;
+  --color-sky-500: #4f8775;
+  --color-sky-600: #3d5c4e;
+  --color-sky-700: #304a3e;
+  --color-sky-800: #243930;
+  --color-sky-900: #1a2923;
+  --color-sky-950: #101c17;
+
+  --color-blue-50: #f4f6f4;
+  --color-blue-100: #e5ece6;
+  --color-blue-200: #ccdcd0;
+  --color-blue-300: #a6c3ac;
+  --color-blue-400: #7ba584;
+  --color-blue-500: #588762;
+  --color-blue-600: #3d5c4e;
+  --color-blue-700: #324a3f;
+  --color-blue-800: #283a32;
+  --color-blue-900: #1d2a24;
+  --color-blue-950: #111a16;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: #FAF7F2;
+    color: #242B26;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .dark body {
+    background-color: #121614;
+    color: #E8EDE9;
+  }
+}
+
+.font-editorial {
+  font-family: var(--font-serif);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 16px);
+}
+
+
