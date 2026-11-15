@@ -21,6 +21,7 @@ import { MealLogEntry, UserNutritionProfile, MealType, ProductLabelAnalysis } fr
 import { WeeklyCalorieTrendChart } from './WeeklyCalorieTrendChart';
 import { NutriRankCard } from './NutriRankCard';
 import { calculateNutriRank } from '../services/nutriRankService';
+import { roundInt } from '../utils/numberFormat';
 
 interface DailyDashboardProps {
   logs: MealLogEntry[];
@@ -74,19 +75,27 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
     };
   });
 
-  // Compute daily totals
-  const totalCalories = logs.reduce((acc, item) => acc + item.calories, 0);
-  const totalProtein = logs.reduce((acc, item) => acc + item.protein, 0);
-  const totalCarbs = logs.reduce((acc, item) => acc + item.carbs, 0);
-  const totalFat = logs.reduce((acc, item) => acc + item.fat, 0);
-  const totalFiber = logs.reduce((acc, item) => acc + (item.fiber || 0), 0);
+  // Compute daily totals (rounded to nearest integer to prevent IEEE-754 float artifacts)
+  const totalCalories = roundInt(logs.reduce((acc, item) => acc + (Number(item.calories) || 0), 0));
+  const totalProtein = roundInt(logs.reduce((acc, item) => acc + (Number(item.protein) || 0), 0));
+  const totalCarbs = roundInt(logs.reduce((acc, item) => acc + (Number(item.carbs) || 0), 0));
+  const totalFat = roundInt(logs.reduce((acc, item) => acc + (Number(item.fat) || 0), 0));
+  const totalFiber = roundInt(logs.reduce((acc, item) => acc + (Number(item.fiber) || 0), 0));
+  const roundedWaterMl = roundInt(waterMl);
 
-  const caloriesRemaining = profile.targetCalories - totalCalories;
-  const calPercent = Math.min(Math.round((totalCalories / profile.targetCalories) * 100), 100);
-  const proteinPercent = Math.min(Math.round((totalProtein / profile.targetProtein) * 100), 100);
-  const carbsPercent = Math.min(Math.round((totalCarbs / profile.targetCarbs) * 100), 100);
-  const fatPercent = Math.min(Math.round((totalFat / profile.targetFat) * 100), 100);
-  const waterPercent = Math.min(Math.round((waterMl / profile.targetWaterMl) * 100), 100);
+  const targetCalories = Math.max(1, roundInt(profile.targetCalories, 2000));
+  const targetProtein = Math.max(1, roundInt(profile.targetProtein, 130));
+  const targetCarbs = Math.max(1, roundInt(profile.targetCarbs, 220));
+  const targetFat = Math.max(1, roundInt(profile.targetFat, 60));
+  const targetWaterMl = Math.max(1, roundInt(profile.targetWaterMl, 2500));
+
+  const caloriesRemaining = targetCalories - totalCalories;
+  const calPercent = Math.min(Math.round((totalCalories / targetCalories) * 100), 100);
+  const proteinPercent = Math.min(Math.round((totalProtein / targetProtein) * 100), 100);
+  const fiberPercent = Math.min(Math.round((totalFiber / 30) * 100), 100);
+  const carbsPercent = Math.min(Math.round((totalCarbs / targetCarbs) * 100), 100);
+  const fatPercent = Math.min(Math.round((totalFat / targetFat) * 100), 100);
+  const waterPercent = Math.min(Math.round((roundedWaterMl / targetWaterMl) * 100), 100);
 
   // Group meals
   const mealSections: { type: MealType; label: string; icon: string; timeHint: string }[] = [
@@ -227,7 +236,7 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
                 <span className="text-3xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9] mt-0.5">
                   {Math.abs(caloriesRemaining).toLocaleString()}
                 </span>
-                <span className="text-[11px] text-[#7A8B7F] font-mono">/ {profile.targetCalories.toLocaleString()} kcal</span>
+                <span className="text-[11px] text-[#7A8B7F] font-mono">/ {targetCalories.toLocaleString()} kcal</span>
               </div>
             </div>
 
@@ -248,16 +257,16 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
           {/* 4 Botanical Macro Pillars (7 cols) */}
           <div className="lg:col-span-7 grid grid-cols-2 gap-3.5">
             {/* Pillar 1: Đạm (Protein) - Terracotta */}
-            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between">
-              <div className="flex items-center justify-between text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#C86446] dark:text-[#E89279]">Đạm thực dưỡng</span>
-                <span className="font-mono tabular-nums text-[11px]">{proteinPercent}%</span>
+            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between min-w-0">
+              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
+                <span className="font-medium text-[#C86446] dark:text-[#E89279] truncate">Đạm thực dưỡng</span>
+                <span className="font-mono tabular-nums text-[11px] shrink-0">{proteinPercent}%</span>
               </div>
-              <div className="flex items-baseline gap-1.5 my-1">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
                 <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
                   {totalProtein}
                 </span>
-                <span className="text-xs text-[#7A8B7F] font-mono">/ {profile.targetProtein}g</span>
+                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {targetProtein}g</span>
               </div>
               <div className="w-full bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
                 <div
@@ -269,39 +278,39 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
             </div>
 
             {/* Pillar 2: Chất Xơ (Fiber) - Forest Sage (Deliciously Ella's Star) */}
-            <div className="p-4 rounded-2xl bg-[#F4F7F4] dark:bg-[#161F1A] border border-[#D8E2D8] dark:border-[#26372D] flex flex-col justify-between">
-              <div className="flex items-center justify-between text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#3D5C4E] dark:text-[#8FA89B]">Chất xơ tự nhiên</span>
-                <span className="font-mono tabular-nums text-[11px] font-bold text-[#3D5C4E] dark:text-[#8FA89B]">
-                  {Math.round((totalFiber / 30) * 100)}%
+            <div className="p-4 rounded-2xl bg-[#F4F7F4] dark:bg-[#161F1A] border border-[#D8E2D8] dark:border-[#26372D] flex flex-col justify-between min-w-0">
+              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
+                <span className="font-medium text-[#3D5C4E] dark:text-[#8FA89B] truncate">Chất xơ tự nhiên</span>
+                <span className="font-mono tabular-nums text-[11px] font-bold text-[#3D5C4E] dark:text-[#8FA89B] shrink-0">
+                  {fiberPercent}%
                 </span>
               </div>
-              <div className="flex items-baseline gap-1.5 my-1">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
                 <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
                   {totalFiber}
                 </span>
-                <span className="text-xs text-[#7A8B7F] font-mono">/ 30g chuẩn</span>
+                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ 30g chuẩn</span>
               </div>
               <div className="w-full bg-[#D8E2D8] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
                 <div
                   className="h-full bg-[#3D5C4E] dark:bg-[#5F8060] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min((totalFiber / 30) * 100, 100)}%` }}
+                  style={{ width: `${Math.min(fiberPercent, 100)}%` }}
                 />
               </div>
               <span className="text-[10px] text-[#3D5C4E] dark:text-[#8FA89B] mt-2 block font-medium">Hệ vi sinh & đường ruột</span>
             </div>
 
             {/* Pillar 3: Tinh Bột Chậm (Carbs) - Honey */}
-            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between">
-              <div className="flex items-center justify-between text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#DDA15E]">Tinh bột phức hợp</span>
-                <span className="font-mono tabular-nums text-[11px]">{carbsPercent}%</span>
+            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between min-w-0">
+              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
+                <span className="font-medium text-[#DDA15E] truncate">Tinh bột phức hợp</span>
+                <span className="font-mono tabular-nums text-[11px] shrink-0">{carbsPercent}%</span>
               </div>
-              <div className="flex items-baseline gap-1.5 my-1">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
                 <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
                   {totalCarbs}
                 </span>
-                <span className="text-xs text-[#7A8B7F] font-mono">/ {profile.targetCarbs}g</span>
+                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {targetCarbs}g</span>
               </div>
               <div className="w-full bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
                 <div
@@ -313,16 +322,16 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
             </div>
 
             {/* Pillar 4: Chất Béo Lành Mạnh (Fats) - Warm Olive */}
-            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between">
-              <div className="flex items-center justify-between text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#7A8B58]">Chất béo thực vật</span>
-                <span className="font-mono tabular-nums text-[11px]">{fatPercent}%</span>
+            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between min-w-0">
+              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
+                <span className="font-medium text-[#7A8B58] truncate">Chất béo thực vật</span>
+                <span className="font-mono tabular-nums text-[11px] shrink-0">{fatPercent}%</span>
               </div>
-              <div className="flex items-baseline gap-1.5 my-1">
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
                 <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
                   {totalFat}
                 </span>
-                <span className="text-xs text-[#7A8B7F] font-mono">/ {profile.targetFat}g</span>
+                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {targetFat}g</span>
               </div>
               <div className="w-full bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
                 <div
@@ -342,10 +351,10 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
               <Droplet className="w-5 h-5 fill-[#3D5C4E]/20" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="text-sm font-semibold text-[#243B30] dark:text-[#E8EDE9]">Thói quen uống nước</span>
                 <span className="text-xs font-mono tabular-nums text-[#7A8B7F]">
-                  {waterMl} / {profile.targetWaterMl} ml ({waterPercent}%)
+                  {roundedWaterMl} / {targetWaterMl} ml ({waterPercent}%)
                 </span>
               </div>
               <div className="w-48 sm:w-64 bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full mt-1.5 overflow-hidden">
@@ -442,7 +451,7 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
                   </p>
                 </div>
                 <div className="mt-3 pt-2.5 border-t border-[#EAE5DC] dark:border-[#27302A] flex items-center justify-between text-xs text-[#7A8B7F]">
-                  <span>Độ sạch: <strong className="font-mono text-[#243B30] dark:text-[#E8EDE9]">{lbl.cleanScore}/100</strong></span>
+                  <span>Độ sạch: <strong className="font-mono text-[#243B30] dark:text-[#E8EDE9]">{roundInt(lbl.cleanScore)}/100</strong></span>
                   <span>Phụ gia: <strong className="font-mono text-[#243B30] dark:text-[#E8EDE9]">{lbl.additives.length} chất</strong></span>
                 </div>
               </div>
@@ -468,7 +477,7 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
         <div className="space-y-4">
           {mealSections.map((sec) => {
             const sectionLogs = logs.filter((l) => l.mealType === sec.type);
-            const secCal = sectionLogs.reduce((acc, m) => acc + m.calories, 0);
+            const secCal = roundInt(sectionLogs.reduce((acc, m) => acc + (Number(m.calories) || 0), 0));
 
             return (
               <div
@@ -521,8 +530,8 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
                       const isExpanded = expandedMealId === item.id;
                       return (
                         <div key={item.id} className="p-4 sm:p-5 transition-colors hover:bg-[#FAF7F2]/50 dark:hover:bg-[#151916]/50">
-                          <div className="flex items-start sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-3.5">
+                          <div className="flex items-start sm:items-center justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center gap-3.5 min-w-0 flex-1">
                               {item.imageUrl ? (
                                 <img
                                   src={item.imageUrl}
@@ -536,25 +545,25 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
                                 </div>
                               )}
 
-                              <div>
-                                <h4 className="text-sm sm:text-base font-bold text-[#243B30] dark:text-[#E8EDE9]">
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-sm sm:text-base font-bold text-[#243B30] dark:text-[#E8EDE9] line-clamp-1">
                                   {item.vietnameseName}
                                 </h4>
-                                <div className="flex items-center gap-2 text-xs text-[#7A8B7F] mt-0.5">
-                                  <span>{item.estimatedTotalGrams}g</span>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#7A8B7F] mt-0.5">
+                                  <span>{roundInt(item.estimatedTotalGrams)}g</span>
                                   <span aria-hidden="true">·</span>
-                                  <span className="text-[#C86446] font-mono tabular-nums">{item.protein}g đạm</span>
+                                  <span className="text-[#C86446] font-mono tabular-nums">{roundInt(item.protein)}g đạm</span>
                                   <span aria-hidden="true">·</span>
-                                  <span className="text-[#DDA15E] font-mono tabular-nums">{item.carbs}g carb</span>
+                                  <span className="text-[#DDA15E] font-mono tabular-nums">{roundInt(item.carbs)}g carb</span>
                                   <span aria-hidden="true">·</span>
-                                  <span className="text-[#7A8B58] font-mono tabular-nums">{item.fat}g béo</span>
+                                  <span className="text-[#7A8B58] font-mono tabular-nums">{roundInt(item.fat)}g béo</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3 shrink-0">
-                              <span className="text-base font-bold text-[#243B30] dark:text-[#E8EDE9] font-mono tabular-nums">
-                                {item.calories} <span className="text-xs font-normal text-[#7A8B7F]">kcal</span>
+                            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                              <span className="text-sm sm:text-base font-bold text-[#243B30] dark:text-[#E8EDE9] font-mono tabular-nums whitespace-nowrap">
+                                {roundInt(item.calories)} <span className="text-xs font-normal text-[#7A8B7F]">kcal</span>
                               </span>
 
                               <button
@@ -586,12 +595,12 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
                                 <span className="font-semibold text-[#243B30] dark:text-[#E8EDE9] block mb-2">
                                   Bóc tách từng thành phần tự nhiên:
                                 </span>
-                                <div className="space-y-1.5">
+                                <div className="space-y-2 sm:space-y-1.5">
                                   {item.ingredients.map((ing, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-[#6A786E] dark:text-[#9DAEA3]">
-                                      <span>• {ing.name} ({ing.weightGrams}g)</span>
-                                      <span className="font-mono tabular-nums">
-                                        {ing.calories} kcal (Đạm: {ing.protein}g · Carb: {ing.carbs}g · Béo: {ing.fat}g)
+                                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-0.5 sm:gap-2 text-[#6A786E] dark:text-[#9DAEA3]">
+                                      <span>• {ing.name} ({roundInt(ing.weightGrams)}g)</span>
+                                      <span className="font-mono tabular-nums text-[11px] sm:text-xs">
+                                        {roundInt(ing.calories)} kcal (Đạm: {roundInt(ing.protein)}g · Carb: {roundInt(ing.carbs)}g · Béo: {roundInt(ing.fat)}g)
                                       </span>
                                     </div>
                                   ))}

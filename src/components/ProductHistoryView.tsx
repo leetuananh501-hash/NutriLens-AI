@@ -25,6 +25,7 @@ import {
 import { ProductLabelAnalysis, MealLogEntry } from '../types';
 import { calculateNutriRank } from '../services/nutriRankService';
 import { NutriRankCard } from './NutriRankCard';
+import { roundInt } from '../utils/numberFormat';
 
 interface ProductHistoryViewProps {
   labelHistory: ProductLabelAnalysis[];
@@ -411,7 +412,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-3">
                     <span className="text-slate-500">
-                      Độ sạch: <strong className="font-mono text-slate-900 dark:text-white">{item.cleanScore}/100</strong>
+                      Độ sạch: <strong className="font-mono text-slate-900 dark:text-white">{roundInt(item.cleanScore)}/100</strong>
                     </span>
                     <span className="text-slate-400">·</span>
                     <span className="text-slate-500 font-mono">
@@ -449,11 +450,11 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">Bữa ăn dinh dưỡng</span>
                       <span aria-hidden="true">·</span>
-                      <span>{meal.estimatedTotalGrams}g</span>
+                      <span>{roundInt(meal.estimatedTotalGrams)}g</span>
                     </div>
 
                     <span className="text-xs font-bold font-mono px-2.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                      {meal.calories} kcal
+                      {roundInt(meal.calories)} kcal
                     </span>
                   </div>
 
@@ -466,15 +467,15 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
                   </p>
 
                   <div className="flex items-center gap-3 text-xs text-[#7A8B7F] font-mono mt-3">
-                    <span className="text-[#C86446]">P: {meal.protein}g</span>
-                    <span className="text-[#DDA15E]">C: {meal.carbs}g</span>
-                    <span className="text-[#7A8B58]">F: {meal.fat}g</span>
+                    <span className="text-[#C86446]">P: {roundInt(meal.protein)}g</span>
+                    <span className="text-[#DDA15E]">C: {roundInt(meal.carbs)}g</span>
+                    <span className="text-[#7A8B58]">F: {roundInt(meal.fat)}g</span>
                   </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                   <span className="text-slate-500">
-                    Điểm sức khỏe: <strong className="font-mono text-emerald-600">{meal.healthScore}/10</strong>
+                    Điểm sức khỏe: <strong className="font-mono text-emerald-600">{roundInt(meal.healthScore)}/10</strong>
                   </span>
                   <button
                     onClick={() => onDeleteMeal(meal.id)}
@@ -534,7 +535,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
 
               <div className="text-right shrink-0">
                 <span className="text-[10px] font-bold uppercase opacity-75 block">Độ sạch</span>
-                <span className="text-2xl font-black font-mono">{selectedLabel.cleanScore}/100</span>
+                <span className="text-2xl font-black font-mono">{roundInt(selectedLabel.cleanScore)}/100</span>
               </div>
             </div>
 

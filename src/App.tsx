@@ -8,6 +8,7 @@ import { GoalsView } from './components/GoalsView';
 import { MobileQuickScanSheet } from './components/MobileQuickScanSheet';
 import { NutriRankModal } from './components/NutriRankModal';
 import { calculateNutriRank } from './services/nutriRankService';
+import { normalizeMealNumbers, normalizeLabelNumbers, roundInt } from './utils/numberFormat';
 import { 
   MealLogEntry, 
   ProductLabelAnalysis, 
@@ -72,29 +73,35 @@ export default function App() {
     const saved = localStorage.getItem('nutrilens_logs');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((m) => normalizeMealNumbers(m) as MealLogEntry);
+        }
       } catch (e) {
         console.error('Error parsing saved logs:', e);
       }
     }
-    return INITIAL_MEAL_LOGS;
+    return INITIAL_MEAL_LOGS.map((m) => normalizeMealNumbers(m) as MealLogEntry);
   });
 
   const [savedLabels, setSavedLabels] = useState<ProductLabelAnalysis[]>(() => {
     const saved = localStorage.getItem('nutrilens_labels');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((l) => normalizeLabelNumbers(l));
+        }
       } catch (e) {
         console.error('Error parsing saved labels:', e);
       }
     }
-    return SAMPLE_LABELS.map((s) => s.data);
+    return SAMPLE_LABELS.map((s) => normalizeLabelNumbers(s.data));
   });
 
   const [waterMl, setWaterMl] = useState<number>(() => {
     const saved = localStorage.getItem('nutrilens_water');
-    return saved ? parseInt(saved, 10) : 1250;
+    return saved ? roundInt(parseInt(saved, 10), 1250) : 1250;
   });
 
   const [profile, setProfile] = useState<UserNutritionProfile>(() => {
@@ -145,15 +152,15 @@ export default function App() {
     water: waterMl,
     profile,
     onSyncComplete: (synced) => {
-      if (synced.meals) setMealLogs(synced.meals);
-      if (synced.labels) setSavedLabels(synced.labels);
+      if (synced.meals) setMealLogs(synced.meals.map((m) => normalizeMealNumbers(m) as MealLogEntry));
+      if (synced.labels) setSavedLabels(synced.labels.map((l) => normalizeLabelNumbers(l)));
     },
   });
 
   // Handlers with Offline Action Queuing
   const handleAddMeal = (meal: AnalyzedMeal, mealType: MealType, imageUrl?: string) => {
     const newEntry: MealLogEntry = {
-      ...meal,
+      ...normalizeMealNumbers(meal),
       id: `meal-${Date.now()}`,
       mealType,
       loggedAt: new Date().toISOString(),
@@ -194,10 +201,10 @@ export default function App() {
   };
 
   const handleSaveLabelAnalysis = (analysis: ProductLabelAnalysis) => {
-    const withTimestamp = {
+    const withTimestamp = normalizeLabelNumbers({
       ...analysis,
       scannedAt: analysis.scannedAt || new Date().toISOString(),
-    };
+    });
     setSavedLabels((prev) => [withTimestamp, ...prev]);
     addToQueue({
       type: 'ADD_LABEL',

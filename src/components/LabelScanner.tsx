@@ -19,6 +19,7 @@ import {
 import { ProductLabelAnalysis, ChemicalAdditive } from '../types';
 import { SAMPLE_LABELS, SampleLabelItem } from '../data/sampleData';
 import { estimateProductLabel } from '../data/nutritionEstimator';
+import { normalizeLabelNumbers, roundInt } from '../utils/numberFormat';
 
 interface LabelScannerProps {
   onSaveLabelAnalysis: (analysis: ProductLabelAnalysis) => void;
@@ -62,7 +63,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 800;
+          const maxDim = 640;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -83,7 +84,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
             return;
           }
           ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
+          resolve(canvas.toDataURL('image/jpeg', 0.65));
         };
         img.onerror = () => resolve(e.target?.result as string);
         img.src = e.target?.result as string;
@@ -163,9 +164,9 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
     setErrorMsg(null);
     setSavedSuccess(false);
 
-    // Hard 10-second client-side timeout to prevent any infinite spinner
+    // Client-side safety timeout (15s) to prevent any infinite spinner
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const response = await fetch('/api/analyze-label', {
@@ -194,17 +195,17 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
       }
 
       if (response.ok && data && (data as any).productName) {
-        setAnalysisResult(data);
+        setAnalysisResult(normalizeLabelNumbers(data));
       } else {
         console.warn('[LabelScanner] Using instant intelligent additives estimation fallback');
         const fallback = estimateProductLabel(productHint, selectedImage || undefined);
-        setAnalysisResult(fallback);
+        setAnalysisResult(normalizeLabelNumbers(fallback));
       }
     } catch (err: any) {
       clearTimeout(timeoutId);
       console.warn('[LabelScanner] Network fetch failed or timed out, falling back to local additives engine:', err?.message || err);
       const fallback = estimateProductLabel(productHint, selectedImage || undefined);
-      setAnalysisResult(fallback);
+      setAnalysisResult(normalizeLabelNumbers(fallback));
     } finally {
       clearTimeout(timeoutId);
       setIsScanning(false);
@@ -213,11 +214,11 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
 
   const handleSaveToHistory = () => {
     if (!analysisResult) return;
-    onSaveLabelAnalysis({
+    onSaveLabelAnalysis(normalizeLabelNumbers({
       ...analysisResult,
       labelImageUrl: selectedImage || undefined,
       scannedAt: new Date().toISOString(),
-    });
+    }));
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
@@ -509,7 +510,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
                 Điểm độ sạch:
               </span>
               <div className="text-3xl font-black font-mono tabular-nums mt-0.5">
-                {analysisResult.cleanScore}
+                {roundInt(analysisResult.cleanScore)}
                 <span className="text-sm font-normal opacity-60">/100</span>
               </div>
             </div>
@@ -751,7 +752,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
                   </p>
                 </div>
                 <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500">
-                  <span>Điểm: <strong className="font-mono">{item.cleanScore}/100</strong></span>
+                  <span>Điểm: <strong className="font-mono">{roundInt(item.cleanScore)}/100</strong></span>
                   <span>Phụ gia: <strong className="font-mono">{item.additives.length} chất</strong></span>
                 </div>
               </div>

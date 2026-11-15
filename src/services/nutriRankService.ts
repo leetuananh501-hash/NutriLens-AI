@@ -17,11 +17,12 @@ export function calculateNutriRank(
   const buyLabels = labels.filter((l) => l.verdict === 'BUY');
   const passLabels = labels.filter((l) => l.verdict === 'PASS');
   const totalAdditivesIdentified = labels.reduce((acc, l) => acc + (l.additives?.length || 0), 0);
-  const totalFiberToday = meals.reduce((acc, m) => acc + (m.fiber || 0), 0);
-  const highHealthMeals = meals.filter((m) => (m.healthScore || 0) >= 80);
+  const totalFiberToday = Math.round(meals.reduce((acc, m) => acc + (Number(m.fiber) || 0), 0));
+  const roundedWaterMl = Math.round(Number(waterMl) || 0);
+  const highHealthMeals = meals.filter((m) => (m.healthScore || 0) >= 8);
 
   // Compute Clean Score average
-  const totalCleanScores = labels.reduce((acc, l) => acc + (l.cleanScore || 0), 0);
+  const totalCleanScores = labels.reduce((acc, l) => acc + (Number(l.cleanScore) || 0), 0);
   const cleanScoreAvg = totalLabels > 0 ? Math.round(totalCleanScores / totalLabels) : 85;
 
   // Define Badge catalog
@@ -103,13 +104,13 @@ export function calculateNutriRank(
       iconName: 'Droplet',
       category: 'hydration',
       rarity: 'common',
-      isUnlocked: waterMl >= 2000,
-      currentCount: waterMl,
+      isUnlocked: roundedWaterMl >= 2000,
+      currentCount: roundedWaterMl,
       targetCount: 2000,
       unit: 'ml',
-      progressPercent: Math.min(Math.round((waterMl / 2000) * 100), 100),
+      progressPercent: Math.min(Math.round((roundedWaterMl / 2000) * 100), 100),
       rewardXp: 80,
-      unlockedAt: waterMl >= 2000 ? 'Đã đạt hôm nay' : undefined,
+      unlockedAt: roundedWaterMl >= 2000 ? 'Đã đạt hôm nay' : undefined,
     },
     {
       id: 'codex_guardian',

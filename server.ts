@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { estimateMealNutrition, estimateProductLabel } from './src/data/nutritionEstimator';
+import { normalizeMealNumbers, normalizeLabelNumbers } from './src/utils/numberFormat';
 
 dotenv.config();
 
@@ -79,7 +80,7 @@ function formatGeminiErrorMessage(error: any): string {
   return 'Không thể kết nối đến máy chủ AI. Vui lòng bấm Thử lại sau giây lát.';
 }
 
-// Timeout helper for Promise.race to guarantee server never hangs more than 5 seconds
+// Timeout helper for Promise.race to guarantee server never hangs indefinitely
 function timeoutPromise(ms: number): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => {
@@ -88,22 +89,22 @@ function timeoutPromise(ms: number): Promise<never> {
   });
 }
 
-// Helper function to call Gemini API with cascading fast models (sub-2s latency, 5s hard timeout)
+// Helper function to call Gemini API with cascading fast models (12s primary runway, zero thinkingConfig)
 async function callGeminiWithRetry(params: {
   contents: any;
   systemInstruction: string;
   responseSchema: any;
 }) {
-  const modelsToTry: { name: string }[] = [
-    { name: 'gemini-3.8-flash' },
-    { name: 'gemini-3.1-flash-lite' },
+  const modelsToTry: { name: string; timeoutMs: number }[] = [
+    { name: 'gemini-3.8-flash', timeoutMs: 12000 },
+    { name: 'gemini-3.1-flash-lite', timeoutMs: 8000 },
   ];
 
   let lastError: any = null;
 
   for (const model of modelsToTry) {
     try {
-      console.log(`[Gemini] Attempting model: ${model.name}`);
+      console.log(`[Gemini] Attempting model: ${model.name} (timeout: ${model.timeoutMs}ms)`);
       // Zero thinkingConfig to minimize latency for instant JSON responses
       const config: any = {
         systemInstruction: params.systemInstruction,
@@ -119,7 +120,7 @@ async function callGeminiWithRetry(params: {
 
       const response: any = await Promise.race([
         generatePromise,
-        timeoutPromise(5000),
+        timeoutPromise(model.timeoutMs),
       ]);
 
       if (response && response.text) {
@@ -269,11 +270,11 @@ Nhiệm vụ:
       data = estimateMealNutrition(description, imageBase64);
     }
 
-    return res.json(data);
+    return res.json(normalizeMealNumbers(data));
   } catch (error: any) {
     console.error('Error in analyze-meal handler:', error);
     const fallback = estimateMealNutrition(req.body?.description, req.body?.imageBase64);
-    return res.json(fallback);
+    return res.json(normalizeMealNumbers(fallback));
   }
 });
 
@@ -413,11 +414,11 @@ Nhiệm vụ:
       data = estimateProductLabel(productNameHint, imageBase64);
     }
 
-    return res.json(data);
+    return res.json(normalizeLabelNumbers(data));
   } catch (error: any) {
     console.error('Error in analyze-label handler:', error);
     const fallback = estimateProductLabel(req.body?.productNameHint, req.body?.imageBase64);
-    return res.json(fallback);
+    return res.json(normalizeLabelNumbers(fallback));
   }
 });
 

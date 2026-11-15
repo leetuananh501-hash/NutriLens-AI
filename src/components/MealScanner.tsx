@@ -16,6 +16,7 @@ import {
 import { AnalyzedMeal, MealType } from '../types';
 import { SAMPLE_MEALS, SampleMealItem } from '../data/sampleData';
 import { estimateMealNutrition } from '../data/nutritionEstimator';
+import { normalizeMealNumbers, roundInt } from '../utils/numberFormat';
 
 interface MealScannerProps {
   initialMealType?: MealType;
@@ -63,7 +64,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const maxDim = 800;
+          const maxDim = 640;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -84,7 +85,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
             return;
           }
           ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.7));
+          resolve(canvas.toDataURL('image/jpeg', 0.65));
         };
         img.onerror = () => resolve(e.target?.result as string);
         img.src = e.target?.result as string;
@@ -112,10 +113,11 @@ export const MealScanner: React.FC<MealScannerProps> = ({
 
   // Pick sample meal
   const handleSelectSample = (sample: SampleMealItem) => {
+    const normalized = normalizeMealNumbers(JSON.parse(JSON.stringify(sample.data)));
     setSelectedImage(sample.thumbnail);
     setImageMime('image/jpeg');
-    setBaseMealData(JSON.parse(JSON.stringify(sample.data)));
-    setAnalyzedMeal(JSON.parse(JSON.stringify(sample.data)));
+    setBaseMealData(normalized);
+    setAnalyzedMeal(normalized);
     setPortionScale(1.0);
     setErrorMsg(null);
     setSavedSuccess(false);
@@ -160,7 +162,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
       // Offline fallback: Use local Vietnamese nutrition estimator
       setIsScanning(true);
       setTimeout(() => {
-        const fallback = estimateMealNutrition(textDescription, selectedImage || undefined);
+        const fallback = normalizeMealNumbers(estimateMealNutrition(textDescription, selectedImage || undefined));
         setBaseMealData(JSON.parse(JSON.stringify(fallback)));
         setAnalyzedMeal(fallback);
         setPortionScale(1.0);
@@ -173,9 +175,9 @@ export const MealScanner: React.FC<MealScannerProps> = ({
     setErrorMsg(null);
     setSavedSuccess(false);
 
-    // Hard 10-second client-side timeout to prevent any infinite spinner
+    // Client-side safety timeout (15s) to prevent any infinite spinner
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const response = await fetch('/api/analyze-meal', {
@@ -205,13 +207,14 @@ export const MealScanner: React.FC<MealScannerProps> = ({
 
       // If server returned valid data with dishName, use it
       if (response.ok && data && (data as any).dishName) {
-        setBaseMealData(JSON.parse(JSON.stringify(data)));
-        setAnalyzedMeal(data);
+        const normalized = normalizeMealNumbers(data);
+        setBaseMealData(JSON.parse(JSON.stringify(normalized)));
+        setAnalyzedMeal(normalized);
         setPortionScale(1.0);
       } else {
         // Graceful automatic fallback: Use intelligent Vietnamese nutrition database
         console.warn('[MealScanner] Using instant intelligent nutrition estimation fallback');
-        const fallback = estimateMealNutrition(textDescription, selectedImage || undefined);
+        const fallback = normalizeMealNumbers(estimateMealNutrition(textDescription, selectedImage || undefined));
         setBaseMealData(JSON.parse(JSON.stringify(fallback)));
         setAnalyzedMeal(fallback);
         setPortionScale(1.0);
@@ -220,7 +223,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
       clearTimeout(timeoutId);
       console.warn('[MealScanner] Network fetch failed or timed out, falling back to local nutrition engine:', err?.message || err);
       // Instant intelligent fallback so user never experiences an infinite freeze
-      const fallback = estimateMealNutrition(textDescription, selectedImage || undefined);
+      const fallback = normalizeMealNumbers(estimateMealNutrition(textDescription, selectedImage || undefined));
       setBaseMealData(JSON.parse(JSON.stringify(fallback)));
       setAnalyzedMeal(fallback);
       setPortionScale(1.0);
@@ -230,7 +233,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
     }
   };
 
-  // Adjust portion size dynamically
+  // Adjust portion size dynamically (all numbers rounded to integer units)
   const handleScaleChange = (newScale: number) => {
     if (!baseMealData) return;
     const clampedScale = Math.max(0.2, Math.min(3.0, Math.round(newScale * 10) / 10));
@@ -240,17 +243,17 @@ export const MealScanner: React.FC<MealScannerProps> = ({
       ...baseMealData,
       estimatedTotalGrams: Math.round(baseMealData.estimatedTotalGrams * clampedScale),
       calories: Math.round(baseMealData.calories * clampedScale),
-      protein: Math.round(baseMealData.protein * clampedScale * 10) / 10,
-      carbs: Math.round(baseMealData.carbs * clampedScale * 10) / 10,
-      fat: Math.round(baseMealData.fat * clampedScale * 10) / 10,
-      fiber: Math.round((baseMealData.fiber || 0) * clampedScale * 10) / 10,
+      protein: Math.round(baseMealData.protein * clampedScale),
+      carbs: Math.round(baseMealData.carbs * clampedScale),
+      fat: Math.round(baseMealData.fat * clampedScale),
+      fiber: Math.round((baseMealData.fiber || 0) * clampedScale),
       ingredients: baseMealData.ingredients.map((ing) => ({
         ...ing,
         weightGrams: Math.round(ing.weightGrams * clampedScale),
         calories: Math.round(ing.calories * clampedScale),
-        protein: Math.round(ing.protein * clampedScale * 10) / 10,
-        carbs: Math.round(ing.carbs * clampedScale * 10) / 10,
-        fat: Math.round(ing.fat * clampedScale * 10) / 10,
+        protein: Math.round(ing.protein * clampedScale),
+        carbs: Math.round(ing.carbs * clampedScale),
+        fat: Math.round(ing.fat * clampedScale),
       })),
     };
     setAnalyzedMeal(updated);
@@ -258,7 +261,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
 
   const handleSave = () => {
     if (!analyzedMeal) return;
-    onSaveMeal(analyzedMeal, mealType, selectedImage || undefined);
+    onSaveMeal(normalizeMealNumbers(analyzedMeal), mealType, selectedImage || undefined);
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -472,8 +475,8 @@ export const MealScanner: React.FC<MealScannerProps> = ({
                     {sample.name}
                   </h4>
                   <div className="flex items-center justify-between text-[11px] text-[#7A8B7F] mt-1">
-                    <span className="font-mono text-[#3D5C4E] dark:text-[#8FA89B] font-bold">{sample.data.calories} kcal</span>
-                    <span>{sample.data.estimatedTotalGrams}g</span>
+                    <span className="font-mono text-[#3D5C4E] dark:text-[#8FA89B] font-bold">{roundInt(sample.data.calories)} kcal</span>
+                    <span>{roundInt(sample.data.estimatedTotalGrams)}g</span>
                   </div>
                 </button>
               ))}
@@ -496,7 +499,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
                 <span>{analyzedMeal.dishName}</span>
                 <span aria-hidden="true">·</span>
                 <span className="font-medium text-[#3D5C4E] dark:text-[#8FA89B]">
-                  Điểm sức khỏe: {analyzedMeal.healthScore}/10
+                  Điểm sức khỏe: {roundInt(analyzedMeal.healthScore)}/10
                 </span>
               </div>
               <h2 className="font-editorial text-2xl sm:text-3xl italic font-normal tracking-tight text-[#243B30] dark:text-[#E8EDE9]">
@@ -515,13 +518,13 @@ export const MealScanner: React.FC<MealScannerProps> = ({
             </div>
 
             {/* Quick Macro Pills */}
-            <div className="text-right sm:text-right shrink-0">
+            <div className="text-left sm:text-right shrink-0">
               <div className="text-3xl font-extrabold text-slate-900 dark:text-white font-mono tabular-nums">
-                {analyzedMeal.calories}{' '}
+                {roundInt(analyzedMeal.calories)}{' '}
                 <span className="text-sm font-normal text-slate-500">kcal</span>
               </div>
               <span className="text-xs text-slate-500 font-mono">
-                Tổng khối lượng: {analyzedMeal.estimatedTotalGrams}g
+                Tổng khối lượng: {roundInt(analyzedMeal.estimatedTotalGrams)}g
               </span>
             </div>
           </div>
@@ -572,28 +575,28 @@ export const MealScanner: React.FC<MealScannerProps> = ({
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
               <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 block">Đạm (Protein)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
-                {analyzedMeal.protein}g
+                {roundInt(analyzedMeal.protein)}g
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
               <span className="text-xs font-semibold text-[#DDA15E] block">Tinh bột (Carbs)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
-                {analyzedMeal.carbs}g
+                {roundInt(analyzedMeal.carbs)}g
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
               <span className="text-xs font-semibold text-[#7A8B58] block">Chất béo (Fat)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
-                {analyzedMeal.fat}g
+                {roundInt(analyzedMeal.fat)}g
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
               <span className="text-xs font-semibold text-[#3D5C4E] dark:text-[#8FA89B] block">Chất xơ (Fiber)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
-                {analyzedMeal.fiber || 0}g
+                {roundInt(analyzedMeal.fiber)}g
               </span>
             </div>
           </div>
@@ -621,11 +624,11 @@ export const MealScanner: React.FC<MealScannerProps> = ({
                       <td className="py-2.5 px-3 font-sans font-medium text-slate-800 dark:text-slate-200">
                         {ing.name}
                       </td>
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{ing.weightGrams}g</td>
-                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{ing.calories} kcal</td>
-                      <td className="py-2.5 px-3 text-[#C86446]">{ing.protein}g</td>
-                      <td className="py-2.5 px-3 text-[#DDA15E]">{ing.carbs}g</td>
-                      <td className="py-2.5 px-3 text-[#7A8B58]">{ing.fat}g</td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">{roundInt(ing.weightGrams)}g</td>
+                      <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white whitespace-nowrap">{roundInt(ing.calories)} kcal</td>
+                      <td className="py-2.5 px-3 text-[#C86446] whitespace-nowrap">{roundInt(ing.protein)}g</td>
+                      <td className="py-2.5 px-3 text-[#DDA15E] whitespace-nowrap">{roundInt(ing.carbs)}g</td>
+                      <td className="py-2.5 px-3 text-[#7A8B58] whitespace-nowrap">{roundInt(ing.fat)}g</td>
                     </tr>
                   ))}
                 </tbody>
