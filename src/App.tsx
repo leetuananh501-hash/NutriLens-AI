@@ -7,6 +7,8 @@ import { ProductHistoryView } from './components/ProductHistoryView';
 import { GoalsView } from './components/GoalsView';
 import { MobileQuickScanSheet } from './components/MobileQuickScanSheet';
 import { NutriRankModal } from './components/NutriRankModal';
+import { WeeklyMealPlannerModal } from './components/WeeklyMealPlannerModal';
+import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { calculateNutriRank } from './services/nutriRankService';
 import { normalizeMealNumbers, normalizeLabelNumbers, roundInt } from './utils/numberFormat';
 import { 
@@ -67,6 +69,16 @@ export default function App() {
   const [isQuickScanOpen, setIsQuickScanOpen] = useState<boolean>(false);
   const [isMobileFrameMode, setIsMobileFrameMode] = useState<boolean>(false);
   const [isNutriRankOpen, setIsNutriRankOpen] = useState<boolean>(false);
+  const [isMealPlannerOpen, setIsMealPlannerOpen] = useState<boolean>(false);
+  const [isProductCompareOpen, setIsProductCompareOpen] = useState<boolean>(false);
+  const [comparePair, setComparePair] = useState<{ a: number; b: number }>({ a: 0, b: 1 });
+
+  const handleOpenProductCompare = (indexA?: number, indexB?: number) => {
+    const defaultA = typeof indexA === 'number' ? indexA : 0;
+    const defaultB = typeof indexB === 'number' ? indexB : savedLabels.length > 1 ? 1 : 0;
+    setComparePair({ a: defaultA, b: defaultB });
+    setIsProductCompareOpen(true);
+  };
 
   // Logs and Data state with LocalStorage
   const [mealLogs, setMealLogs] = useState<MealLogEntry[]>(() => {
@@ -267,6 +279,8 @@ export default function App() {
           onOpenLabelScan={handleOpenLabelScan}
           recentLabels={savedLabels}
           onOpenNutriRank={() => setIsNutriRankOpen(true)}
+          onOpenMealPlanner={() => setIsMealPlannerOpen(true)}
+          onOpenProductCompare={() => handleOpenProductCompare()}
           isOnline={isOnline}
           isSyncing={isSyncing}
           pendingCount={pendingCount}
@@ -288,6 +302,7 @@ export default function App() {
         <LabelScanner
           onSaveLabelAnalysis={handleSaveLabelAnalysis}
           savedLabelsHistory={savedLabels}
+          onOpenProductCompare={() => handleOpenProductCompare()}
         />
       )}
 
@@ -301,6 +316,7 @@ export default function App() {
           onOpenLabelScanner={handleOpenLabelScan}
           onOpenMealScanner={handleOpenMealScan}
           onOpenNutriRank={() => setIsNutriRankOpen(true)}
+          onOpenProductCompare={(a, b) => handleOpenProductCompare(a, b)}
           isOnline={isOnline}
           isSyncing={isSyncing}
           pendingCount={pendingCount}
@@ -316,13 +332,14 @@ export default function App() {
             handleUpdateProfile(p);
             setActiveTab('dashboard');
           }}
+          onOpenMealPlanner={() => setIsMealPlannerOpen(true)}
         />
       )}
     </>
   );
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#121614] text-[#243B30] dark:text-[#E8EDE9] transition-colors flex flex-col items-center">
+    <div className="min-h-screen bg-[#FAF7F2] dark:bg-[#121614] text-[#243B30] dark:text-[#E8EDE9] transition-colors flex flex-col items-center overflow-x-clip">
       {/* Desktop Helper Bar: Allows reviewer to test iOS/Android phone frame or responsive web */}
       <div className="hidden lg:flex items-center justify-between w-full max-w-7xl px-6 py-2.5 bg-white/70 dark:bg-[#1A201C]/70 border-b border-[#EAE5DC] dark:border-[#27302A] text-xs text-[#7A8B7F]">
         <div className="flex items-center gap-2">
@@ -442,31 +459,31 @@ export default function App() {
             isMobileFrameMode ? '!sticky !bottom-2' : ''
           }`}
         >
-          <div className="grid grid-cols-5 items-center h-16 px-3 relative">
+          <div className="grid grid-cols-5 items-center h-16 px-2 sm:px-3 relative">
             {/* Tab 1: Nhật ký */}
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] ${
+              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] min-w-0 ${
                 activeTab === 'dashboard'
                   ? 'text-[#3D5C4E] dark:text-[#8FA89B] font-bold'
                   : 'text-[#8E9F93] hover:text-[#243B30] dark:text-[#6A786E]'
               }`}
             >
-              <Utensils className="w-4.5 h-4.5" />
-              <span className="text-[10px] tracking-tight mt-1 font-medium">Nhật ký</span>
+              <Utensils className="w-4.5 h-4.5 shrink-0" />
+              <span className="text-[10px] tracking-tight mt-1 font-medium whitespace-nowrap">Nhật ký</span>
             </button>
 
             {/* Tab 2: Soi Nhãn */}
             <button
               onClick={() => setActiveTab('label_scan')}
-              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] ${
+              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] min-w-0 ${
                 activeTab === 'label_scan'
                   ? 'text-[#C86446] dark:text-[#E89279] font-bold'
                   : 'text-[#8E9F93] hover:text-[#243B30] dark:text-[#6A786E]'
               }`}
             >
-              <ShieldAlert className="w-4.5 h-4.5" />
-              <span className="text-[10px] tracking-tight mt-1 font-medium">Soi Nhãn</span>
+              <ShieldAlert className="w-4.5 h-4.5 shrink-0" />
+              <span className="text-[10px] tracking-tight mt-1 font-medium whitespace-nowrap">Soi Nhãn</span>
             </button>
 
             {/* Center: Signature Elevated Shutter Button */}
@@ -474,7 +491,7 @@ export default function App() {
               <button
                 onClick={() => setIsQuickScanOpen(true)}
                 aria-label="Chụp ảnh phân tích"
-                className="w-13 h-13 rounded-full bg-[#3D5C4E] hover:bg-[#2D473B] text-[#FAF7F2] shadow-lg shadow-[#3D5C4E]/30 border-3 border-white dark:border-[#1A201C] flex items-center justify-center active:scale-95 transition-transform"
+                className="w-13 h-13 rounded-full bg-[#3D5C4E] hover:bg-[#2D473B] text-[#FAF7F2] shadow-lg shadow-[#3D5C4E]/30 border-3 border-white dark:border-[#1A201C] flex items-center justify-center active:scale-95 transition-transform shrink-0"
               >
                 <Camera className="w-5.5 h-5.5 stroke-[2]" />
               </button>
@@ -483,27 +500,27 @@ export default function App() {
             {/* Tab 3: Lịch sử */}
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] ${
+              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] min-w-0 ${
                 activeTab === 'history'
                   ? 'text-[#3D5C4E] dark:text-[#8FA89B] font-bold'
                   : 'text-[#8E9F93] hover:text-[#243B30] dark:text-[#6A786E]'
               }`}
             >
-              <History className="w-4.5 h-4.5" />
-              <span className="text-[10px] tracking-tight mt-1 font-medium">Lịch sử</span>
+              <History className="w-4.5 h-4.5 shrink-0" />
+              <span className="text-[10px] tracking-tight mt-1 font-medium whitespace-nowrap">Lịch sử</span>
             </button>
 
             {/* Tab 4: Mục tiêu */}
             <button
               onClick={() => setActiveTab('goals')}
-              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] ${
+              className={`flex flex-col items-center justify-center py-1 transition-colors min-h-[44px] min-w-0 ${
                 activeTab === 'goals'
                   ? 'text-[#3D5C4E] dark:text-[#8FA89B] font-bold'
                   : 'text-[#8E9F93] hover:text-[#243B30] dark:text-[#6A786E]'
               }`}
             >
-              <Target className="w-4.5 h-4.5" />
-              <span className="text-[10px] tracking-tight mt-1 font-medium">Mục tiêu</span>
+              <Target className="w-4.5 h-4.5 shrink-0" />
+              <span className="text-[10px] tracking-tight mt-1 font-medium whitespace-nowrap">Mục tiêu</span>
             </button>
           </div>
         </div>
@@ -523,6 +540,25 @@ export default function App() {
         onClose={() => setIsNutriRankOpen(false)}
         rankInfo={nutriRankInfo}
       />
+
+      {/* AI 7-Day Vietnamese Meal Planner & Smart Grocery Checklist Modal */}
+      <WeeklyMealPlannerModal
+        isOpen={isMealPlannerOpen}
+        onClose={() => setIsMealPlannerOpen(false)}
+        profile={profile}
+      />
+
+      {/* Head-to-Head Supermarket Product Comparison Modal */}
+      {isProductCompareOpen && (
+        <ProductComparisonModal
+          isOpen={isProductCompareOpen}
+          onClose={() => setIsProductCompareOpen(false)}
+          labelHistory={savedLabels}
+          initialIndexA={comparePair.a}
+          initialIndexB={comparePair.b}
+          onSaveNewLabel={handleSaveLabelAnalysis}
+        />
+      )}
     </div>
   );
 }

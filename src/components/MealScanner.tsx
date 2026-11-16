@@ -391,16 +391,16 @@ export const MealScanner: React.FC<MealScannerProps> = ({
               <button
                 onClick={handleAnalyze}
                 disabled={isScanning || (!selectedImage && !textDescription.trim())}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 text-xs sm:text-sm font-semibold text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all shadow-xs"
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 sm:px-5 text-xs sm:text-sm font-semibold text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all shadow-xs whitespace-nowrap"
               >
                 {isScanning ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                     <span>Đang bóc tách dinh dưỡng...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4 shrink-0" />
                     <span>Phân tích Calo AI</span>
                   </>
                 )}
@@ -440,9 +440,9 @@ export const MealScanner: React.FC<MealScannerProps> = ({
                   <button
                     onClick={handleAnalyze}
                     disabled={isScanning}
-                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap shrink-0"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                     Thử lại ngay
                   </button>
                   <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80">
@@ -563,38 +563,38 @@ export const MealScanner: React.FC<MealScannerProps> = ({
 
               <button
                 onClick={() => handleScaleChange(1.0)}
-                className="text-xs text-slate-500 hover:text-emerald-600 ml-2"
+                className="text-xs text-slate-500 hover:text-emerald-600 ml-2 whitespace-nowrap"
               >
                 Chuẩn (100%)
               </button>
             </div>
           </div>
 
-          {/* Macro 4-Column Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 block">Đạm (Protein)</span>
+          {/* Macro 4-Column Grid (2x2 for zero overflow on 375px+) */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 min-w-0">
+              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 block truncate">Đạm (Protein)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
                 {roundInt(analyzedMeal.protein)}g
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-xs font-semibold text-[#DDA15E] block">Tinh bột (Carbs)</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 min-w-0">
+              <span className="text-xs font-semibold text-[#DDA15E] block truncate">Tinh bột (Carbs)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
                 {roundInt(analyzedMeal.carbs)}g
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-xs font-semibold text-[#7A8B58] block">Chất béo (Fat)</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 min-w-0">
+              <span className="text-xs font-semibold text-[#7A8B58] block truncate">Chất béo (Fat)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
                 {roundInt(analyzedMeal.fat)}g
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-xs font-semibold text-[#3D5C4E] dark:text-[#8FA89B] block">Chất xơ (Fiber)</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 min-w-0">
+              <span className="text-xs font-semibold text-[#3D5C4E] dark:text-[#8FA89B] block truncate">Chất xơ (Fiber)</span>
               <span className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
                 {roundInt(analyzedMeal.fiber)}g
               </span>
@@ -606,16 +606,16 @@ export const MealScanner: React.FC<MealScannerProps> = ({
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               Bóc tách nguyên liệu & hàm lượng tương ứng:
             </h3>
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="overflow-x-auto scrollbar-hide rounded-xl border border-slate-200 dark:border-slate-800">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 uppercase font-semibold">
                   <tr>
-                    <th className="py-2.5 px-3">Thành phần</th>
-                    <th className="py-2.5 px-3">Khối lượng</th>
-                    <th className="py-2.5 px-3">Calo</th>
-                    <th className="py-2.5 px-3">Đạm</th>
-                    <th className="py-2.5 px-3">Carb</th>
-                    <th className="py-2.5 px-3">Fat</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Thành phần</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Khối lượng</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Calo</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Đạm</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Carb</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Fat</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
@@ -654,8 +654,8 @@ export const MealScanner: React.FC<MealScannerProps> = ({
 
           {/* Save to Log Bar */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                 Lưu vào bữa:
               </span>
               <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -663,7 +663,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
                   <button
                     key={type}
                     onClick={() => setMealType(type)}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
                       mealType === type
                         ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -677,7 +677,7 @@ export const MealScanner: React.FC<MealScannerProps> = ({
 
             <button
               onClick={handleSave}
-              className={`flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all ${
+              className={`flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all whitespace-nowrap ${
                 savedSuccess
                   ? 'bg-emerald-700'
                   : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'

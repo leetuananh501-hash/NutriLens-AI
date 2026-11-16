@@ -166,7 +166,7 @@ export const NutriRankModal: React.FC<NutriRankModalProps> = ({ isOpen, onClose,
 
         {/* Filter Tabs */}
         <div className="space-y-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-1 -mx-1 pl-1 pr-2">
             {[
               { id: 'all', label: 'Tất cả huy hiệu' },
               { id: 'clean_food', label: 'Thực phẩm sạch' },

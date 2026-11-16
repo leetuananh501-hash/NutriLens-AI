@@ -20,7 +20,9 @@ import {
   WifiOff,
   RefreshCw,
   HardDrive,
-  Database
+  Database,
+  Scale,
+  Check
 } from 'lucide-react';
 import { ProductLabelAnalysis, MealLogEntry } from '../types';
 import { calculateNutriRank } from '../services/nutriRankService';
@@ -36,6 +38,7 @@ interface ProductHistoryViewProps {
   onOpenLabelScanner: () => void;
   onOpenMealScanner: () => void;
   onOpenNutriRank?: () => void;
+  onOpenProductCompare?: (indexA?: number, indexB?: number) => void;
   isOnline?: boolean;
   isSyncing?: boolean;
   pendingCount?: number;
@@ -52,6 +55,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
   onOpenLabelScanner,
   onOpenMealScanner,
   onOpenNutriRank,
+  onOpenProductCompare,
   isOnline = true,
   isSyncing = false,
   pendingCount = 0,
@@ -61,6 +65,15 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'BUY' | 'CONSIDER' | 'PASS' | 'meals'>('all');
   const [selectedLabel, setSelectedLabel] = useState<ProductLabelAnalysis | null>(null);
+  const [compareIndices, setCompareIndices] = useState<number[]>([]);
+
+  const toggleCompareSelection = (idx: number) => {
+    setCompareIndices((prev) => {
+      if (prev.includes(idx)) return prev.filter((i) => i !== idx);
+      if (prev.length >= 2) return [prev[1], idx];
+      return [...prev, idx];
+    });
+  };
 
   const nutriRankInfo = calculateNutriRank(labelHistory, mealHistory);
 
@@ -113,17 +126,34 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap flex-row items-center gap-2">
+            {onOpenProductCompare && (
+              <button
+                onClick={() =>
+                  compareIndices.length === 2
+                    ? onOpenProductCompare(compareIndices[0], compareIndices[1])
+                    : onOpenProductCompare(0, labelHistory.length > 1 ? 1 : 0)
+                }
+                className="px-3.5 py-2 text-xs font-bold text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] rounded-xl transition-all shadow-xs whitespace-nowrap inline-flex items-center gap-1.5"
+              >
+                <Scale className="w-3.5 h-3.5 shrink-0" />
+                <span>
+                  {compareIndices.length === 2
+                    ? 'So sánh ngay (2/2)'
+                    : 'So sánh đối đầu'}
+                </span>
+              </button>
+            )}
             <button
               onClick={onOpenLabelScanner}
-              className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all shadow-xs"
+              className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all shadow-xs whitespace-nowrap"
             >
               + Soi nhãn mới
             </button>
             {labelHistory.length > 0 && (
               <button
                 onClick={onClearAllLabels}
-                className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors border border-slate-200 dark:border-slate-700"
+                className="px-3 py-2 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors border border-slate-200 dark:border-slate-700 whitespace-nowrap"
                 title="Xóa toàn bộ lịch sử nhãn"
               >
                 Xóa lịch sử
@@ -234,7 +264,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
               <button
                 onClick={onSyncNow}
                 disabled={isSyncing}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-[#151916] hover:bg-[#FAF7F2] dark:hover:bg-[#232B25] text-[#243B30] dark:text-[#FAF7F2] rounded-lg border border-[#EAE5DC] dark:border-[#27302A] font-semibold transition-all active:scale-95 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-[#151916] hover:bg-[#FAF7F2] dark:hover:bg-[#232B25] text-[#243B30] dark:text-[#FAF7F2] rounded-lg border border-[#EAE5DC] dark:border-[#27302A] font-semibold transition-all active:scale-95 disabled:opacity-50 whitespace-nowrap"
                 title="Đồng bộ thủ công với máy chủ"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#3D5C4E]' : ''}`} />
@@ -274,7 +304,7 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
         </div>
 
         {/* Filter Segmented Buttons */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-x-auto shrink-0">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-x-auto scrollbar-hide shrink-0 pr-2">
           <button
             onClick={() => setFilterType('all')}
             className={`px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors ${
@@ -349,10 +379,18 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Render Scrutinized Labels */}
-            {filteredLabels.map((item, idx) => (
+            {filteredLabels.map((item, idx) => {
+              const originalIndex = labelHistory.indexOf(item);
+              const targetIdx = originalIndex >= 0 ? originalIndex : idx;
+              const isSelectedForCompare = compareIndices.includes(targetIdx);
+              return (
               <div
                 key={`label-${idx}`}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-600/60 transition-all flex flex-col justify-between"
+                className={`bg-white dark:bg-slate-900 rounded-2xl p-5 border shadow-xs transition-all flex flex-col justify-between ${
+                  isSelectedForCompare
+                    ? 'border-[#3D5C4E] ring-1 ring-[#3D5C4E]/30'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-600/60'
+                }`}
               >
                 <div>
                   {/* Top Bar of Card */}
@@ -409,26 +447,40 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
                 </div>
 
                 {/* Bottom Bar: Clean Score & Action */}
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-500">
+                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-slate-500 whitespace-nowrap">
                       Độ sạch: <strong className="font-mono text-slate-900 dark:text-white">{roundInt(item.cleanScore)}/100</strong>
                     </span>
-                    <span className="text-slate-400">·</span>
-                    <span className="text-slate-500 font-mono">
-                      {item.additives.length} chất phụ gia
+                    <span className="text-slate-400 hidden sm:inline">·</span>
+                    <span className="text-slate-500 font-mono hidden sm:inline whitespace-nowrap">
+                      {item.additives.length} phụ gia
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
+                    {onOpenProductCompare && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCompareSelection(targetIdx)}
+                        className={`px-2 py-1 text-[11px] font-semibold rounded-lg transition-colors inline-flex items-center gap-1 whitespace-nowrap ${
+                          isSelectedForCompare
+                            ? 'bg-[#3D5C4E] text-white'
+                            : 'text-[#3D5C4E] dark:text-[#8FA89B] hover:bg-[#EBF3EE] dark:hover:bg-[#17261E]'
+                        }`}
+                      >
+                        {isSelectedForCompare ? <Check className="w-3 h-3" /> : <Scale className="w-3 h-3" />}
+                        <span>{isSelectedForCompare ? 'Đã chọn' : 'So sánh'}</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelectedLabel(item)}
-                      className="px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors flex items-center gap-1"
+                      className="px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors flex items-center gap-0.5 whitespace-nowrap"
                     >
                       Chi tiết <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={() => onDeleteLabel(idx)}
+                      onClick={() => onDeleteLabel(targetIdx)}
                       className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded transition-colors"
                       title="Xóa sản phẩm này khỏi lịch sử"
                     >
@@ -437,7 +489,8 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {/* Render Scrutinized Meals if filter allows */}
             {filteredMeals.map((meal) => (
@@ -466,10 +519,10 @@ export const ProductHistoryView: React.FC<ProductHistoryViewProps> = ({
                     {meal.healthSummary}
                   </p>
 
-                  <div className="flex items-center gap-3 text-xs text-[#7A8B7F] font-mono mt-3">
-                    <span className="text-[#C86446]">P: {roundInt(meal.protein)}g</span>
-                    <span className="text-[#DDA15E]">C: {roundInt(meal.carbs)}g</span>
-                    <span className="text-[#7A8B58]">F: {roundInt(meal.fat)}g</span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7A8B7F] font-mono mt-3 overflow-hidden">
+                    <span className="text-[#C86446] whitespace-nowrap shrink-0">P: {roundInt(meal.protein)}g</span>
+                    <span className="text-[#DDA15E] whitespace-nowrap shrink-0">C: {roundInt(meal.carbs)}g</span>
+                    <span className="text-[#7A8B58] whitespace-nowrap shrink-0">F: {roundInt(meal.fat)}g</span>
                   </div>
                 </div>
 

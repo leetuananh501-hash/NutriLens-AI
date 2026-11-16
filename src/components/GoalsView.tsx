@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Target, Calculator, Check, Sparkles, Scale, Activity, Flame } from 'lucide-react';
+import { Target, Calculator, Check, Sparkles, Scale, Activity, Flame, CalendarDays } from 'lucide-react';
 import { UserNutritionProfile } from '../types';
 
 interface GoalsViewProps {
   profile: UserNutritionProfile;
   onUpdateProfile: (newProfile: UserNutritionProfile) => void;
+  onOpenMealPlanner?: () => void;
 }
 
-export const GoalsView: React.FC<GoalsViewProps> = ({ profile, onUpdateProfile }) => {
+export const GoalsView: React.FC<GoalsViewProps> = ({ profile, onUpdateProfile, onOpenMealPlanner }) => {
   const [gender, setGender] = useState<'male' | 'female'>(profile.gender);
   const [weight, setWeight] = useState<number>(profile.currentWeight);
   const [goalWeight, setGoalWeight] = useState<number>(profile.goalWeight);
@@ -214,7 +215,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({ profile, onUpdateProfile }
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                 Mục tiêu hình thể:
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { id: 'lose_weight', label: 'Giảm mỡ (-450 kcal)' },
                   { id: 'maintain', label: 'Giữ dáng (TDEE)' },
@@ -224,7 +225,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({ profile, onUpdateProfile }
                     key={g.id}
                     type="button"
                     onClick={() => setDietGoal(g.id as any)}
-                    className={`p-2.5 text-center text-xs font-bold rounded-xl border transition-all ${
+                    className={`p-2.5 text-center text-xs font-bold rounded-xl border transition-all whitespace-nowrap ${
                       dietGoal === g.id
                         ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
@@ -286,24 +287,37 @@ export const GoalsView: React.FC<GoalsViewProps> = ({ profile, onUpdateProfile }
               </span>
             </div>
 
-            <button
-              onClick={handleSave}
-              className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all ${
-                saved ? 'bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'
-              }`}
-            >
-              {saved ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Đã cập nhật mục tiêu!</span>
-                </>
-              ) : (
-                <>
-                  <Target className="w-4 h-4" />
-                  <span>Lưu & Áp dụng mục tiêu này</span>
-                </>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+              {onOpenMealPlanner && (
+                <button
+                  type="button"
+                  onClick={onOpenMealPlanner}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-[#3D5C4E] dark:text-[#8FC2A6] bg-[#EBF3EE] dark:bg-[#17261E] border border-[#C8DFCC] dark:border-[#2B4636] rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
+                >
+                  <CalendarDays className="w-4 h-4 shrink-0" />
+                  <span>Thực đơn AI 7 ngày</span>
+                </button>
               )}
-            </button>
+
+              <button
+                onClick={handleSave}
+                className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all whitespace-nowrap shrink-0 ${
+                  saved ? 'bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'
+                }`}
+              >
+                {saved ? (
+                  <>
+                    <Check className="w-4 h-4 shrink-0" />
+                    <span>Đã cập nhật mục tiêu!</span>
+                  </>
+                ) : (
+                  <>
+                    <Target className="w-4 h-4 shrink-0" />
+                    <span>Lưu & Áp dụng mục tiêu này</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

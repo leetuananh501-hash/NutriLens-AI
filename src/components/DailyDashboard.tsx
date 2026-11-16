@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Flame, 
   Droplet, 
@@ -15,7 +15,10 @@ import {
   ArrowUpRight,
   WifiOff,
   RefreshCw,
-  HardDrive
+  HardDrive,
+  CalendarDays,
+  Scale,
+  Activity
 } from 'lucide-react';
 import { MealLogEntry, UserNutritionProfile, MealType, ProductLabelAnalysis } from '../types';
 import { WeeklyCalorieTrendChart } from './WeeklyCalorieTrendChart';
@@ -33,12 +36,80 @@ interface DailyDashboardProps {
   onOpenMealScan: (prefillMealType?: MealType) => void;
   onOpenLabelScan: () => void;
   onOpenNutriRank?: () => void;
+  onOpenMealPlanner?: () => void;
+  onOpenProductCompare?: () => void;
   recentLabels: ProductLabelAnalysis[];
   isOnline?: boolean;
   isSyncing?: boolean;
   pendingCount?: number;
   onSyncNow?: () => void;
 }
+
+// 12x12 warm botanical low-resolution PNG base64 placeholder (prevents layout shift while loading)
+const MEAL_IMAGE_PLACEHOLDER =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAIAAADZF8uwAAAAxElEQVR42o3RPQvCMBAG4Pz/0b2bCBniIkFCh5S0GmL6EdqjJn5gJFo6KPgTpAhdDbzbPXDHe+hzhjlvZ1627p41DOY4whw0j8dePboitOJwE9oXTVAzRT8xgPSGXyrmNM0szU9MXnl1lz83obFX3nCnKUhidnjb4hRIZqm88iaoCb2deXTFpWIgSSmWkifrMtk0yxRIfmLaFzAY9LJ1aIXT1Oyw5Alni9V+sS6TbYszSw830T3rOBS1Lurw2Aqiyvz7li8GJV04fk/u8QAAAABJRU5ErkJggg==';
+
+interface MealThumbnailProps {
+  src?: string;
+  alt: string;
+}
+
+const MealThumbnail: React.FC<MealThumbnailProps> = ({ src, alt }) => {
+  const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [hasError, setHasError] = useState<boolean>(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    setHasError(false);
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) {
+      setIsLoaded(true);
+    } else {
+      setIsLoaded(false);
+    }
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="w-14 h-14 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex items-center justify-center text-[#3D5C4E] shrink-0">
+        <Sparkles className="w-5 h-5" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-[#EAE5DC] dark:border-[#27302A] bg-[#FAF7F2] dark:bg-[#151916] shrink-0">
+      {/* Low-resolution blurred base64 placeholder */}
+      <img
+        src={MEAL_IMAGE_PLACEHOLDER}
+        alt=""
+        aria-hidden="true"
+        width={56}
+        height={56}
+        className={`absolute inset-0 w-full h-full object-cover blur-sm scale-110 transition-opacity duration-300 pointer-events-none ${
+          isLoaded ? 'opacity-0' : 'opacity-100'
+        }`}
+      />
+
+      {/* High-resolution meal image */}
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        width={56}
+        height={56}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onLoad={() => setIsLoaded(true)}
+        onError={() => setHasError(true)}
+        className={`relative w-full h-full object-cover transition-opacity duration-300 ${
+          isLoaded ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+    </div>
+  );
+};
 
 export const DailyDashboard: React.FC<DailyDashboardProps> = ({
   logs,
@@ -50,6 +121,8 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
   onOpenMealScan,
   onOpenLabelScan,
   onOpenNutriRank,
+  onOpenMealPlanner,
+  onOpenProductCompare,
   recentLabels,
   isOnline = true,
   isSyncing = false,
@@ -58,6 +131,35 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
 }) => {
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
   const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0);
+
+  const defaultBurnByActivity: Record<UserNutritionProfile['activityLevel'], number> = {
+    sedentary: 180,
+    light: 260,
+    moderate: 340,
+    active: 460,
+  };
+
+  const [burnedCalories, setBurnedCalories] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('nutrilens_burned_kcal');
+      if (saved) return roundInt(parseInt(saved, 10), defaultBurnByActivity[profile.activityLevel]);
+    } catch {
+      // ignore storage error
+    }
+    return defaultBurnByActivity[profile.activityLevel];
+  });
+
+  const handleAddBurnedCalories = (delta: number) => {
+    setBurnedCalories((prev) => {
+      const next = Math.min(2500, Math.max(0, roundInt(prev + delta)));
+      try {
+        localStorage.setItem('nutrilens_burned_kcal', String(next));
+      } catch {
+        // ignore storage error
+      }
+      return next;
+    });
+  };
 
   // Compute Nutri-Rank and badges
   const nutriRankInfo = calculateNutriRank(recentLabels, logs, waterMl);
@@ -89,8 +191,10 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
   const targetFat = Math.max(1, roundInt(profile.targetFat, 60));
   const targetWaterMl = Math.max(1, roundInt(profile.targetWaterMl, 2500));
 
-  const caloriesRemaining = targetCalories - totalCalories;
+  const caloriesRemaining = roundInt(targetCalories - totalCalories + burnedCalories);
   const calPercent = Math.min(Math.round((totalCalories / targetCalories) * 100), 100);
+  const burnGoal = 500;
+  const burnPercent = Math.min(Math.round((burnedCalories / burnGoal) * 100), 100);
   const proteinPercent = Math.min(Math.round((totalProtein / targetProtein) * 100), 100);
   const fiberPercent = Math.min(Math.round((totalFiber / 30) * 100), 100);
   const carbsPercent = Math.min(Math.round((totalCarbs / targetCarbs) * 100), 100);
@@ -129,7 +233,7 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
             <button
               onClick={onSyncNow}
               disabled={isSyncing}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold shrink-0 text-xs flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold shrink-0 text-xs flex items-center gap-1.5 transition-all whitespace-nowrap"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
               <span>Đồng bộ ngay</span>
@@ -141,12 +245,12 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
       {/* 1. Daily Progress & Calorie Overview Strip (Deliciously Ella "Feel Better" Signature Hub) */}
       <section className="bg-white dark:bg-[#1A201C] rounded-[32px] p-5 sm:p-8 border border-[#EAE5DC] dark:border-[#27302A] shadow-xs transition-colors space-y-7">
         {/* Horizontal Mobile Date Carousel (Pebble-shaped dates) */}
-        <div className="flex items-center justify-between gap-1.5 overflow-x-auto pb-2 border-b border-[#F0EBE1] dark:border-[#242D26] -mx-1 px-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-2 pr-2 border-b border-[#F0EBE1] dark:border-[#242D26] -mx-1 pl-1">
           {weekDays.map((item) => (
             <button
               key={item.offset}
               onClick={() => setSelectedDayOffset(item.offset)}
-              className={`flex-1 min-w-[44px] py-2.5 px-2 rounded-2xl flex flex-col items-center justify-center transition-all ${
+              className={`flex-1 min-w-[44px] py-2.5 px-2 rounded-2xl flex flex-col items-center justify-center transition-all shrink-0 ${
                 selectedDayOffset === item.offset
                   ? 'bg-[#3D5C4E] text-[#FAF7F2] shadow-sm font-semibold scale-[1.02]'
                   : 'bg-[#FAF7F2] dark:bg-[#151916] text-[#6A786E] dark:text-[#9DAEA3] hover:bg-[#F2ECE1]'
@@ -161,188 +265,294 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
           ))}
         </div>
 
-        {/* Editorial Greeting Header */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-2 border-b border-[#F0EBE1] dark:border-[#242D26]">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-[#7A8B7F] dark:text-[#8E9F93]">
-              <span>Hôm nay</span>
-              <span aria-hidden="true">·</span>
-              <span>{new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-              <span aria-hidden="true">·</span>
-              <span className="text-[#3D5C4E] dark:text-[#8FA89B] font-medium">
-                {profile.dietGoal === 'lose_weight' ? 'Thâm hụt lành mạnh' : profile.dietGoal === 'gain_muscle' ? 'Tăng cơ tự nhiên' : 'Cân bằng & Tươi trẻ'}
-              </span>
-            </div>
-            <h1 className="font-editorial text-3xl sm:text-4xl italic font-normal tracking-tight text-[#243B30] dark:text-[#E8EDE9] mt-1">
-              Nuôi dưỡng cơ thể hôm nay
-            </h1>
-            <p className="text-xs text-[#6A786E] dark:text-[#9DAEA3] mt-0.5">
-              Lắng nghe dinh dưỡng tự nhiên · Ăn để cảm thấy khỏe khoắn và tràn đầy năng lượng
-            </p>
+        {/* Title block + Always-horizontal CTA Buttons */}
+        <div className="pb-3 border-b border-[#F0EBE1] dark:border-[#242D26]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#7A8B7F] dark:text-[#8E9F93]">
+            <span>Hôm nay</span>
+            <span aria-hidden="true">·</span>
+            <span>{new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+            <span aria-hidden="true">·</span>
+            <span className="text-[#3D5C4E] dark:text-[#8FA89B] font-medium">
+              {profile.dietGoal === 'lose_weight' ? 'Thâm hụt lành mạnh' : profile.dietGoal === 'gain_muscle' ? 'Tăng cơ tự nhiên' : 'Cân bằng & Tươi trẻ'}
+            </span>
           </div>
+          <h1 className="font-editorial text-3xl sm:text-4xl italic font-normal tracking-tight text-[#243B30] dark:text-[#E8EDE9] mt-1">
+            Nuôi dưỡng cơ thể hôm nay
+          </h1>
+          <p className="text-xs text-[#6A786E] dark:text-[#9DAEA3] mt-0.5">
+            Lắng nghe dinh dưỡng tự nhiên · Ăn để cảm thấy khỏe khoắn và tràn đầy năng lượng
+          </p>
 
-          <div className="flex items-center gap-2.5">
+          {/* CTA Buttons — always side by side, never wrap */}
+          <div className="flex flex-row gap-3 mt-4">
             <button
               onClick={() => onOpenMealScan()}
-              className="flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-medium text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] rounded-full transition-all shadow-xs"
+              className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-semibold text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] rounded-full transition-all shadow-xs whitespace-nowrap"
             >
-              <Camera className="w-4 h-4" />
-              <span>Chụp bữa ăn</span>
+              <Camera className="w-4 h-4 shrink-0" />
+              Chụp bữa ăn
             </button>
             <button
               onClick={onOpenLabelScan}
-              className="flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-medium text-[#C86446] bg-[#FBEFEA] dark:bg-[#2D1F1A] hover:bg-[#F6E1D7] dark:hover:bg-[#3B2822] rounded-full transition-all border border-[#F1D5C9] dark:border-[#4B3026]"
+              className="flex flex-1 items-center justify-center gap-2 py-3 text-sm font-semibold text-[#C86446] bg-[#FBEFEA] dark:bg-[#2D1F1A] hover:bg-[#F6E1D7] dark:hover:bg-[#3B2822] rounded-full transition-all border border-[#F1D5C9] dark:border-[#4B3026] whitespace-nowrap"
             >
-              <ShieldAlert className="w-4 h-4 text-[#C86446]" />
-              <span>Soi nhãn thực phẩm</span>
+              <ShieldAlert className="w-4 h-4 shrink-0 text-[#C86446]" />
+              Soi nhãn
             </button>
           </div>
         </div>
 
-        {/* Deliciously Ella Circular Nourishment Hub & 4 Botanical Pillars */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          {/* Central Radial Gauge Card (4 cols) */}
-          <div className="lg:col-span-5 p-6 rounded-[28px] bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col items-center text-center justify-center relative overflow-hidden">
-            {/* SVG Circular Progress Ring */}
-            <div className="relative w-44 h-44 flex items-center justify-center my-2">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                {/* Background Ring */}
+        {/* 3. Compact All-in-one Calorie Overview Card (2-column layout) */}
+        <div className="p-4 sm:p-5 rounded-[24px] bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A]">
+          <div className="grid grid-cols-[100px_1fr] sm:grid-cols-[116px_1fr] gap-3.5 sm:gap-6 items-center">
+            {/* Left Column: Compact SVG Calorie Ring (~100px) */}
+            <div className="relative w-[100px] h-[100px] sm:w-[112px] sm:h-[112px] flex items-center justify-center mx-auto shrink-0">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
+                  cx="50"
+                  cy="50"
+                  r="41"
                   className="stroke-[#EAE5DC] dark:stroke-[#232B25]"
                   strokeWidth="8"
                   fill="transparent"
                 />
-                {/* Active Gradient Ring */}
                 <circle
-                  cx="60"
-                  cy="60"
-                  r="50"
-                  className="stroke-[#3D5C4E] dark:stroke-[#5F8060] transition-all duration-1000 ease-out"
+                  cx="50"
+                  cy="50"
+                  r="41"
+                  className="stroke-[#3D5C4E] dark:stroke-[#5F8060] transition-all duration-700 ease-out"
                   strokeWidth="8"
-                  strokeDasharray={2 * Math.PI * 50}
-                  strokeDashoffset={2 * Math.PI * 50 * (1 - Math.min(calPercent, 100) / 100)}
+                  strokeDasharray={2 * Math.PI * 41}
+                  strokeDashoffset={2 * Math.PI * 41 * (1 - Math.min(calPercent, 100) / 100)}
                   strokeLinecap="round"
                   fill="transparent"
                 />
               </svg>
-              {/* Inner Center Metrics */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[11px] uppercase tracking-wider text-[#7A8B7F] dark:text-[#8E9F93] font-medium">
-                  {caloriesRemaining >= 0 ? 'Còn lại' : 'Vượt mức'}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-1">
+                <span className="text-[10px] uppercase tracking-wider text-[#7A8B7F] dark:text-[#8E9F93] font-bold leading-none">
+                  {caloriesRemaining >= 0 ? 'CÒN LẠI' : 'VƯỢT MỨC'}
                 </span>
-                <span className="text-3xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9] mt-0.5">
+                <span className="text-xl sm:text-2xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9] leading-tight mt-0.5">
                   {Math.abs(caloriesRemaining).toLocaleString()}
                 </span>
-                <span className="text-[11px] text-[#7A8B7F] font-mono">/ {targetCalories.toLocaleString()} kcal</span>
+                <span className="text-[10px] text-[#7A8B7F] font-mono leading-none">kcal</span>
               </div>
             </div>
 
-            <div className="mt-2 text-center">
-              <p className="text-xs font-medium text-[#243B30] dark:text-[#E8EDE9]">
-                {caloriesRemaining >= 0 
-                  ? 'Cơ thể đang ở nhịp độ năng lượng hoàn hảo' 
-                  : 'Năng lượng dư dả cho các hoạt động thể thao tối nay'}
-              </p>
-              <div className="flex items-center justify-center gap-2 text-[11px] text-[#7A8B7F] dark:text-[#8E9F93] mt-1">
-                <span>Đã nạp {totalCalories.toLocaleString()} kcal</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono">{calPercent}% mục tiêu</span>
+            {/* Right Column: 3 Visual Progress Rows */}
+            <div className="space-y-2.5 min-w-0">
+              {/* Row 1: Đã nạp */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-[#243B30] dark:text-[#E8EDE9] truncate">Đã nạp</span>
+                  <span className="font-mono font-bold tabular-nums text-[#3D5C4E] dark:text-[#8FC2A6] whitespace-nowrap">
+                    {roundInt(totalCalories).toLocaleString()} kcal
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[#EAE5DC] dark:bg-[#232B25] overflow-hidden">
+                  <div
+                    className="h-full bg-[#3D5C4E] rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(calPercent, 100)}%` }}
+                  />
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* 4 Botanical Macro Pillars (7 cols) */}
-          <div className="lg:col-span-7 grid grid-cols-2 gap-3.5">
-            {/* Pillar 1: Đạm (Protein) - Terracotta */}
-            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between min-w-0">
-              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#C86446] dark:text-[#E89279] truncate">Đạm thực dưỡng</span>
-                <span className="font-mono tabular-nums text-[11px] shrink-0">{proteinPercent}%</span>
+              {/* Row 2: Vận động / Tiêu hao */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-[#243B30] dark:text-[#E8EDE9] truncate flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5 text-[#C86446] shrink-0" />
+                    <span className="truncate">Vận động / Tiêu hao</span>
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-mono font-bold tabular-nums text-[#C86446] whitespace-nowrap">
+                      {roundInt(burnedCalories).toLocaleString()} kcal
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleAddBurnedCalories(100)}
+                      title="Cộng thêm 100 kcal vận động"
+                      className="px-1.5 py-0.5 rounded-md bg-[#FFF5F3] dark:bg-[#2A1B18] border border-[#FDDBD4] dark:border-[#4D2D27] text-[10px] font-mono font-bold text-[#C86446] hover:opacity-80 transition-opacity whitespace-nowrap"
+                    >
+                      +100
+                    </button>
+                  </div>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[#EAE5DC] dark:bg-[#232B25] overflow-hidden">
+                  <div
+                    className="h-full bg-[#C86446] rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(burnPercent, 100)}%` }}
+                  />
+                </div>
               </div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
-                <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
-                  {totalProtein}
-                </span>
-                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {targetProtein}g</span>
-              </div>
-              <div className="w-full bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
-                <div
-                  className="h-full bg-[#C86446] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(proteinPercent, 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-[#7A8B7F] mt-2 block">Cơ bắp & tái tạo tế bào</span>
-            </div>
 
-            {/* Pillar 2: Chất Xơ (Fiber) - Forest Sage (Deliciously Ella's Star) */}
-            <div className="p-4 rounded-2xl bg-[#F4F7F4] dark:bg-[#161F1A] border border-[#D8E2D8] dark:border-[#26372D] flex flex-col justify-between min-w-0">
-              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#3D5C4E] dark:text-[#8FA89B] truncate">Chất xơ tự nhiên</span>
-                <span className="font-mono tabular-nums text-[11px] font-bold text-[#3D5C4E] dark:text-[#8FA89B] shrink-0">
-                  {fiberPercent}%
+              {/* Row 3: Badge Mục tiêu ngày */}
+              <div className="pt-0.5 flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#243B30] dark:bg-[#3D5C4E] text-[#FAF7F2] text-[11px] font-semibold whitespace-nowrap">
+                  <span>Mục tiêu ngày:</span>
+                  <strong className="font-mono tabular-nums">{targetCalories.toLocaleString()} kcal</strong>
+                </span>
+                <span className="text-[11px] text-[#7A8B7F] font-mono tabular-nums whitespace-nowrap">
+                  {calPercent}% năng lượng nạp
                 </span>
               </div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
-                <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
-                  {totalFiber}
-                </span>
-                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ 30g chuẩn</span>
-              </div>
-              <div className="w-full bg-[#D8E2D8] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
-                <div
-                  className="h-full bg-[#3D5C4E] dark:bg-[#5F8060] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(fiberPercent, 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-[#3D5C4E] dark:text-[#8FA89B] mt-2 block font-medium">Hệ vi sinh & đường ruột</span>
-            </div>
-
-            {/* Pillar 3: Tinh Bột Chậm (Carbs) - Honey */}
-            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between min-w-0">
-              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#DDA15E] truncate">Tinh bột phức hợp</span>
-                <span className="font-mono tabular-nums text-[11px] shrink-0">{carbsPercent}%</span>
-              </div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
-                <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
-                  {totalCarbs}
-                </span>
-                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {targetCarbs}g</span>
-              </div>
-              <div className="w-full bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
-                <div
-                  className="h-full bg-[#DDA15E] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(carbsPercent, 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-[#7A8B7F] mt-2 block">Năng lượng bền bỉ cả ngày</span>
-            </div>
-
-            {/* Pillar 4: Chất Béo Lành Mạnh (Fats) - Warm Olive */}
-            <div className="p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex flex-col justify-between min-w-0">
-              <div className="flex items-center justify-between gap-2 text-xs text-[#7A8B7F] mb-1">
-                <span className="font-medium text-[#7A8B58] truncate">Chất béo thực vật</span>
-                <span className="font-mono tabular-nums text-[11px] shrink-0">{fatPercent}%</span>
-              </div>
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 my-1">
-                <span className="text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
-                  {totalFat}
-                </span>
-                <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {targetFat}g</span>
-              </div>
-              <div className="w-full bg-[#EAE5DC] dark:bg-[#232B25] h-1.5 rounded-full overflow-hidden mt-2">
-                <div
-                  className="h-full bg-[#7A8B58] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(fatPercent, 100)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-[#7A8B7F] mt-2 block">Hấp thu vitamin A, D, E, K</span>
             </div>
           </div>
         </div>
+
+        {/* 4. Botanical 4 Pillars Grid (2x2) */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Pillar 1: Đạm (Protein) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#FFF5F3] dark:bg-[#2A1B18] border border-[#FDDBD4] dark:border-[#4D2D27] flex flex-col justify-between min-w-0">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1">
+              <span className="font-bold text-[#C86446] dark:text-[#F09A82] truncate">Đạm</span>
+              <span className="font-mono tabular-nums text-[11px] font-semibold text-[#C86446] dark:text-[#F09A82] shrink-0">
+                {proteinPercent}%
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 my-0.5">
+              <span className="text-2xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
+                {roundInt(totalProtein)}g
+              </span>
+              <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {roundInt(targetProtein)}g</span>
+            </div>
+            <div className="w-full bg-[#FDDBD4]/70 dark:bg-[#4D2D27] h-1.5 rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full bg-[#C86446] rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(proteinPercent, 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-medium text-[#C86446]/90 dark:text-[#F09A82]/90 mt-2 block">
+              Cơ bắp · Phục hồi
+            </span>
+          </div>
+
+          {/* Pillar 2: Chất xơ (Fiber) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#EBF3EE] dark:bg-[#17261E] border border-[#C8DFCC] dark:border-[#2B4636] flex flex-col justify-between min-w-0">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1">
+              <span className="font-bold text-[#3D5C4E] dark:text-[#8FC2A6] truncate">Chất xơ</span>
+              <span className="font-mono tabular-nums text-[11px] font-semibold text-[#3D5C4E] dark:text-[#8FC2A6] shrink-0">
+                {fiberPercent}%
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 my-0.5">
+              <span className="text-2xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
+                {roundInt(totalFiber)}g
+              </span>
+              <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ 30g</span>
+            </div>
+            <div className="w-full bg-[#C8DFCC]/80 dark:bg-[#2B4636] h-1.5 rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full bg-[#3D5C4E] dark:bg-[#5F8060] rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(fiberPercent, 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-medium text-[#3D5C4E] dark:text-[#8FC2A6] mt-2 block">
+              Vi sinh · Đường ruột
+            </span>
+          </div>
+
+          {/* Pillar 3: Tinh bột (Carbs) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#FDF8EE] dark:bg-[#292114] border border-[#EFDCAD] dark:border-[#4A3B22] flex flex-col justify-between min-w-0">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1">
+              <span className="font-bold text-[#DDA15E] dark:text-[#EBB97B] truncate">Tinh bột</span>
+              <span className="font-mono tabular-nums text-[11px] font-semibold text-[#DDA15E] dark:text-[#EBB97B] shrink-0">
+                {carbsPercent}%
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 my-0.5">
+              <span className="text-2xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
+                {roundInt(totalCarbs)}g
+              </span>
+              <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {roundInt(targetCarbs)}g</span>
+            </div>
+            <div className="w-full bg-[#EFDCAD]/70 dark:bg-[#4A3B22] h-1.5 rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full bg-[#DDA15E] rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(carbsPercent, 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-medium text-[#B87B28] dark:text-[#EBB97B] mt-2 block">
+              Năng lượng · Bền bỉ
+            </span>
+          </div>
+
+          {/* Pillar 4: Chất béo (Fat) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-[#F4F7EE] dark:bg-[#1E2517] border border-[#CFDDB0] dark:border-[#39472B] flex flex-col justify-between min-w-0">
+            <div className="flex items-center justify-between gap-2 text-xs mb-1">
+              <span className="font-bold text-[#7A8B58] dark:text-[#A9BE7E] truncate">Chất béo</span>
+              <span className="font-mono tabular-nums text-[11px] font-semibold text-[#7A8B58] dark:text-[#A9BE7E] shrink-0">
+                {fatPercent}%
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 my-0.5">
+              <span className="text-2xl font-extrabold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9]">
+                {roundInt(totalFat)}g
+              </span>
+              <span className="text-xs text-[#7A8B7F] font-mono whitespace-nowrap">/ {roundInt(targetFat)}g</span>
+            </div>
+            <div className="w-full bg-[#CFDDB0]/70 dark:bg-[#39472B] h-1.5 rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full bg-[#7A8B58] rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(fatPercent, 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-medium text-[#7A8B58] dark:text-[#A9BE7E] mt-2 block">
+              Vitamin · Tim mạch
+            </span>
+          </div>
+        </div>
+
+        {/* Family Assistant Tools Strip: Weekly Meal Planner & Head-to-Head Supermarket Comparison */}
+        {(onOpenMealPlanner || onOpenProductCompare) && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {onOpenMealPlanner && (
+              <button
+                type="button"
+                onClick={onOpenMealPlanner}
+                className="p-3.5 rounded-2xl bg-[#EBF3EE] dark:bg-[#17261E] border border-[#C8DFCC] dark:border-[#2B4636] hover:border-[#3D5C4E] text-left flex items-center justify-between gap-3 transition-all group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#3D5C4E] text-white flex items-center justify-center shrink-0">
+                    <CalendarDays className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-[#243B30] dark:text-[#E8EDE9] block truncate">
+                      Lập thực đơn AI 7 ngày
+                    </span>
+                    <span className="text-[11px] text-[#3D5C4E] dark:text-[#8FC2A6] block truncate">
+                      Món Việt chuẩn vị + Danh sách đi chợ
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#3D5C4E] dark:text-[#8FC2A6] shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
+
+            {onOpenProductCompare && (
+              <button
+                type="button"
+                onClick={onOpenProductCompare}
+                className="p-3.5 rounded-2xl bg-[#FFF5F3] dark:bg-[#2A1B18] border border-[#FDDBD4] dark:border-[#4D2D27] hover:border-[#C86446] text-left flex items-center justify-between gap-3 transition-all group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#C86446] text-white flex items-center justify-center shrink-0">
+                    <Scale className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-[#243B30] dark:text-[#E8EDE9] block truncate">
+                      Soi & So sánh siêu thị
+                    </span>
+                    <span className="text-[11px] text-[#C86446] dark:text-[#F09A82] block truncate">
+                      Đặt 2 sản phẩm lên bàn cân A vs B
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#C86446] dark:text-[#F09A82] shrink-0 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Artisanal Hydration Ritual */}
         <div className="pt-5 border-t border-[#F0EBE1] dark:border-[#242D26] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -366,23 +576,23 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => onAddWater(250)}
-              className="px-3.5 py-1.5 text-xs font-medium text-[#243B30] dark:text-[#E8EDE9] bg-[#FAF7F2] dark:bg-[#151916] hover:bg-[#F2ECE1] dark:hover:bg-[#232B25] rounded-full border border-[#EAE5DC] dark:border-[#27302A] transition-colors"
+              className="px-3.5 py-1.5 text-xs font-medium text-[#243B30] dark:text-[#E8EDE9] bg-[#FAF7F2] dark:bg-[#151916] hover:bg-[#F2ECE1] dark:hover:bg-[#232B25] rounded-full border border-[#EAE5DC] dark:border-[#27302A] transition-colors whitespace-nowrap"
             >
               +250 ml (1 ly)
             </button>
             <button
               onClick={() => onAddWater(500)}
-              className="px-3.5 py-1.5 text-xs font-medium text-[#243B30] dark:text-[#E8EDE9] bg-[#FAF7F2] dark:bg-[#151916] hover:bg-[#F2ECE1] dark:hover:bg-[#232B25] rounded-full border border-[#EAE5DC] dark:border-[#27302A] transition-colors"
+              className="px-3.5 py-1.5 text-xs font-medium text-[#243B30] dark:text-[#E8EDE9] bg-[#FAF7F2] dark:bg-[#151916] hover:bg-[#F2ECE1] dark:hover:bg-[#232B25] rounded-full border border-[#EAE5DC] dark:border-[#27302A] transition-colors whitespace-nowrap"
             >
               +500 ml (1 chai)
             </button>
             {waterMl > 0 && (
               <button
                 onClick={onResetWater}
-                className="px-2.5 py-1.5 text-xs font-medium text-[#7A8B7F] hover:text-[#C86446] transition-colors"
+                className="px-2.5 py-1.5 text-xs font-medium text-[#7A8B7F] hover:text-[#C86446] transition-colors whitespace-nowrap"
                 title="Đặt lại lượng nước"
               >
                 Đặt lại
@@ -416,9 +626,9 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
             </div>
             <button
               onClick={onOpenLabelScan}
-              className="text-xs font-medium text-[#3D5C4E] dark:text-[#8FA89B] hover:underline flex items-center gap-1"
+              className="text-xs font-medium text-[#3D5C4E] dark:text-[#8FA89B] hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
             >
-              Soi thêm sản phẩm <ArrowUpRight className="w-3.5 h-3.5" />
+              Soi thêm sản phẩm <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
             </button>
           </div>
 
@@ -532,31 +742,20 @@ export const DailyDashboard: React.FC<DailyDashboardProps> = ({
                         <div key={item.id} className="p-4 sm:p-5 transition-colors hover:bg-[#FAF7F2]/50 dark:hover:bg-[#151916]/50">
                           <div className="flex items-start sm:items-center justify-between gap-3 sm:gap-4">
                             <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={item.vietnameseName}
-                                  referrerPolicy="no-referrer"
-                                  className="w-14 h-14 rounded-2xl object-cover border border-[#EAE5DC] dark:border-[#27302A] shrink-0"
-                                />
-                              ) : (
-                                <div className="w-14 h-14 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A] flex items-center justify-center text-[#3D5C4E] shrink-0">
-                                  <Sparkles className="w-5 h-5" />
-                                </div>
-                              )}
+                              <MealThumbnail src={item.imageUrl} alt={item.vietnameseName} />
 
                               <div className="min-w-0 flex-1">
                                 <h4 className="text-sm sm:text-base font-bold text-[#243B30] dark:text-[#E8EDE9] line-clamp-1">
                                   {item.vietnameseName}
                                 </h4>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#7A8B7F] mt-0.5">
-                                  <span>{roundInt(item.estimatedTotalGrams)}g</span>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="text-[#C86446] font-mono tabular-nums">{roundInt(item.protein)}g đạm</span>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="text-[#DDA15E] font-mono tabular-nums">{roundInt(item.carbs)}g carb</span>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="text-[#7A8B58] font-mono tabular-nums">{roundInt(item.fat)}g béo</span>
+                                <div className="flex items-center gap-1 sm:gap-2 text-[11px] sm:text-xs text-[#7A8B7F] mt-0.5 overflow-x-auto scrollbar-hide whitespace-nowrap">
+                                  <span className="shrink-0">{roundInt(item.estimatedTotalGrams)}g</span>
+                                  <span className="shrink-0" aria-hidden="true">·</span>
+                                  <span className="shrink-0 text-[#C86446] font-mono tabular-nums">{roundInt(item.protein)}g đạm</span>
+                                  <span className="shrink-0" aria-hidden="true">·</span>
+                                  <span className="shrink-0 text-[#DDA15E] font-mono tabular-nums">{roundInt(item.carbs)}g carb</span>
+                                  <span className="shrink-0" aria-hidden="true">·</span>
+                                  <span className="shrink-0 text-[#7A8B58] font-mono tabular-nums">{roundInt(item.fat)}g béo</span>
                                 </div>
                               </div>
                             </div>

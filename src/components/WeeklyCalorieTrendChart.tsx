@@ -156,15 +156,15 @@ export const WeeklyCalorieTrendChart: React.FC<WeeklyCalorieTrendChartProps> = (
 
           <div className="pt-2 border-t border-[#27302A] grid grid-cols-3 gap-1 text-[10px] text-center font-mono">
             <div className="bg-[#2D1F1A] p-1 rounded text-[#E89279]">
-              <span className="block text-[9px] text-[#C86446]">Đạm</span>
+              <span className="block text-[10px] text-[#C86446]">Đạm</span>
               {data.protein}g
             </div>
             <div className="bg-[#2A2319] p-1 rounded text-[#DDA15E]">
-              <span className="block text-[9px] text-[#DDA15E]/80">Carb</span>
+              <span className="block text-[10px] text-[#DDA15E]/80">Carb</span>
               {data.carbs}g
             </div>
             <div className="bg-[#1F271B] p-1 rounded text-[#B4C099]">
-              <span className="block text-[9px] text-[#7A8B58]">Béo</span>
+              <span className="block text-[10px] text-[#7A8B58]">Béo</span>
               {data.fat}g
             </div>
           </div>
@@ -197,63 +197,63 @@ export const WeeklyCalorieTrendChart: React.FC<WeeklyCalorieTrendChartProps> = (
         <div className="flex items-center gap-1 p-1 bg-[#FAF7F2] dark:bg-[#151916] rounded-full border border-[#EAE5DC] dark:border-[#27302A] shrink-0 self-stretch sm:self-auto justify-center">
           <button
             onClick={() => setChartMode('calories')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all whitespace-nowrap ${
               chartMode === 'calories'
                 ? 'bg-[#3D5C4E] text-[#FAF7F2] shadow-xs'
                 : 'text-[#6A786E] dark:text-[#9DAEA3] hover:text-[#243B30]'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-[#DDA15E]" />
+            <Flame className="w-3.5 h-3.5 text-[#DDA15E] shrink-0" />
             <span>Đường Calo</span>
           </button>
 
           <button
             onClick={() => setChartMode('macros')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-all whitespace-nowrap ${
               chartMode === 'macros'
                 ? 'bg-[#3D5C4E] text-[#FAF7F2] shadow-xs'
                 : 'text-[#6A786E] dark:text-[#9DAEA3] hover:text-[#243B30]'
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-[#3D5C4E]" />
+            <Layers className="w-3.5 h-3.5 text-[#3D5C4E] shrink-0" />
             <span>Cột Macro</span>
           </button>
         </div>
       </div>
 
       {/* 2. Three Luxury Summary Micro-KPIs */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-4 p-3.5 sm:p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A]">
-        <div className="text-center sm:text-left">
-          <span className="text-[10px] sm:text-xs text-[#7A8B7F] uppercase tracking-wider block font-medium">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-[#FAF7F2] dark:bg-[#151916] border border-[#EAE5DC] dark:border-[#27302A]">
+        <div className="text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs text-[#7A8B7F] uppercase tracking-wider block font-medium truncate">
             Trung bình ngày
           </span>
-          <div className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9] mt-0.5">
+          <div className="text-base sm:text-2xl font-bold font-mono tabular-nums text-[#243B30] dark:text-[#E8EDE9] mt-0.5 whitespace-nowrap">
             {avgCalDay.toLocaleString()}
-            <span className="text-[10px] sm:text-xs font-normal text-[#7A8B7F] ml-1">kcal</span>
+            <span className="text-[10px] sm:text-xs font-normal text-[#7A8B7F] ml-0.5 sm:ml-1">kcal</span>
           </div>
         </div>
 
-        <div className="text-center sm:text-left border-x border-[#EAE5DC] dark:border-[#27302A] px-2 sm:px-4">
-          <span className="text-[10px] sm:text-xs text-[#7A8B7F] uppercase tracking-wider block font-medium">
-            Thâm hụt ròng tuần
+        <div className="text-center sm:text-left border-x border-[#EAE5DC] dark:border-[#27302A] px-1.5 sm:px-4 min-w-0">
+          <span className="text-[10px] sm:text-xs text-[#7A8B7F] uppercase tracking-wider block font-medium truncate">
+            Thâm hụt tuần
           </span>
           <div
-            className={`text-lg sm:text-2xl font-bold font-mono tabular-nums mt-0.5 ${
+            className={`text-base sm:text-2xl font-bold font-mono tabular-nums mt-0.5 whitespace-nowrap ${
               netWeeklyDeficit >= 0 ? 'text-[#3D5C4E] dark:text-[#8FA89B]' : 'text-[#C86446]'
             }`}
           >
             {netWeeklyDeficit >= 0 ? `-${netWeeklyDeficit}` : `+${Math.abs(netWeeklyDeficit)}`}
-            <span className="text-[10px] sm:text-xs font-normal text-[#7A8B7F] ml-1">kcal</span>
+            <span className="text-[10px] sm:text-xs font-normal text-[#7A8B7F] ml-0.5 sm:ml-1">kcal</span>
           </div>
         </div>
 
-        <div className="text-center sm:text-left">
-          <span className="text-[10px] sm:text-xs text-[#7A8B7F] uppercase tracking-wider block font-medium">
+        <div className="text-center sm:text-left min-w-0">
+          <span className="text-[10px] sm:text-xs text-[#7A8B7F] uppercase tracking-wider block font-medium truncate">
             Tỷ lệ đạt chuẩn
           </span>
-          <div className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-[#3D5C4E] dark:text-[#8FA89B] mt-0.5">
+          <div className="text-base sm:text-2xl font-bold font-mono tabular-nums text-[#3D5C4E] dark:text-[#8FA89B] mt-0.5 whitespace-nowrap">
             {daysOnTarget}/7
-            <span className="text-[10px] sm:text-xs font-normal text-[#7A8B7F] ml-1">ngày</span>
+            <span className="text-[10px] sm:text-xs font-normal text-[#7A8B7F] ml-0.5 sm:ml-1">ngày</span>
           </div>
         </div>
       </div>

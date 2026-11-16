@@ -47,17 +47,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#FAF7F2]/90 dark:bg-[#121614]/90 backdrop-blur-md border-b border-[#EAE5DC] dark:border-[#232B25] transition-colors">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-6 px-4 sm:px-6 py-3.5">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-6 px-3 sm:px-6 py-3 sm:py-3.5">
         {/* Zone 1: Brand wordmark in warm editorial serif */}
         <button
           onClick={() => setActiveTab('dashboard')}
-          className="flex items-center gap-2.5 text-left text-[#243B30] dark:text-[#E8EDE9] whitespace-nowrap shrink-0 group focus:outline-none"
+          className="flex items-center gap-2 sm:gap-2.5 text-left text-[#243B30] dark:text-[#E8EDE9] whitespace-nowrap shrink-0 group focus:outline-none"
         >
-          <div className="w-9 h-9 rounded-full bg-[#3D5C4E] text-[#FAF7F2] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#3D5C4E] text-[#FAF7F2] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
             <Sparkles className="w-4 h-4" />
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="font-editorial text-2xl font-normal italic tracking-tight">NutriLens</span>
+            <span className="font-editorial text-xl sm:text-2xl font-normal italic tracking-tight">NutriLens</span>
             <span className="text-[11px] font-sans font-medium text-[#7A8B7F] dark:text-[#9DAEA3] hidden sm:inline">
               · feel better
             </span>
@@ -128,7 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Zone 3: Sync Indicator, Theme Toggle, Primary Action */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Network / Sync Status */}
           <button
             onClick={() => onSyncNow && onSyncNow()}
@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 ? 'Đang đồng bộ dữ liệu...'
                 : `Đã đồng bộ ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'mới nhất'}.`
             }
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium transition-all border whitespace-nowrap ${
               !isOnline
                 ? 'bg-[#FBEFEA] dark:bg-[#2A1E18] text-[#C86446] border-[#F1D5C9] dark:border-[#4A2D23]'
                 : isSyncing
@@ -153,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {!isOnline ? (
               <>
                 <WifiOff className="w-3.5 h-3.5 text-[#C86446]" />
-                <span className="hidden xs:inline">Ngoại tuyến</span>
+                <span className="hidden sm:inline">Ngoại tuyến</span>
                 {pendingCount > 0 && (
                   <span className="w-4 h-4 rounded-full bg-[#C86446] text-white text-[10px] font-mono font-bold flex items-center justify-center">
                     {pendingCount}
@@ -163,17 +163,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : isSyncing ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#3D5C4E]" />
-                <span className="hidden xs:inline">Đang đồng bộ</span>
+                <span className="hidden sm:inline">Đang đồng bộ</span>
               </>
             ) : pendingCount > 0 ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 text-[#DDA15E]" />
-                <span className="hidden xs:inline">Chờ ({pendingCount})</span>
+                <span className="hidden sm:inline">Chờ ({pendingCount})</span>
               </>
             ) : (
               <>
                 <Check className="w-3 h-3 text-[#3D5C4E] dark:text-[#8FA89B]" />
-                <span className="hidden xs:inline text-[11px]">Đã lưu an toàn</span>
+                <span className="hidden sm:inline text-[11px]">Đã lưu an toàn</span>
               </>
             )}
           </button>
@@ -183,9 +183,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenNutriRank}
               title="Xem Bảng Vinh Danh & Huy Hiệu Nutri-Rank"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#C86446] dark:text-[#E89279] bg-[#FBEFEA] dark:bg-[#2A1E18] border border-[#F1D5C9] dark:border-[#4A2D23] hover:scale-105 active:scale-95 transition-all shadow-2xs"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-semibold text-[#C86446] dark:text-[#E89279] bg-[#FBEFEA] dark:bg-[#2A1E18] border border-[#F1D5C9] dark:border-[#4A2D23] hover:scale-105 active:scale-95 transition-all shadow-2xs whitespace-nowrap"
             >
-              <Trophy className="w-3.5 h-3.5 text-[#C86446] dark:text-[#E89279]" />
+              <Trophy className="w-3.5 h-3.5 text-[#C86446] dark:text-[#E89279] shrink-0" />
               <span className="hidden sm:inline">Rank:</span>
               <span className="font-bold font-mono">Lv.{nutriRankLevel}</span>
             </button>
@@ -194,16 +194,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             onClick={toggleDark}
             aria-label="Toggle dark mode"
-            className="w-9 h-9 rounded-full border border-[#EAE5DC] dark:border-[#2B352E] flex items-center justify-center text-[#6A786E] dark:text-[#9DAEA3] hover:bg-[#EAE5DC]/60 dark:hover:bg-[#232B25] transition-colors"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-[#EAE5DC] dark:border-[#2B352E] flex items-center justify-center text-[#6A786E] dark:text-[#9DAEA3] hover:bg-[#EAE5DC]/60 dark:hover:bg-[#232B25] transition-colors shrink-0"
           >
             {isDark ? <Sun className="w-4 h-4 text-[#DDA15E]" /> : <Moon className="w-4 h-4 text-[#3D5C4E]" />}
           </button>
 
           <button
             onClick={onOpenQuickScan}
-            className="flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-medium text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] active:scale-95 rounded-full shadow-sm transition-all whitespace-nowrap shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-[#FAF7F2] bg-[#3D5C4E] hover:bg-[#2D473B] active:scale-95 rounded-full shadow-sm transition-all whitespace-nowrap shrink-0"
           >
-            <ScanLine className="w-3.5 h-3.5" />
+            <ScanLine className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Chụp & Soi ngay</span>
             <span className="sm:hidden">Soi</span>
           </button>

@@ -4,7 +4,9 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { estimateMealNutrition, estimateProductLabel } from './src/data/nutritionEstimator';
-import { normalizeMealNumbers, normalizeLabelNumbers } from './src/utils/numberFormat';
+import { normalizeMealNumbers, normalizeLabelNumbers, roundInt } from './src/utils/numberFormat';
+import { compareTwoProducts, buildVietnameseWeeklyMealPlan } from './src/services/nutritionPlannerService';
+import type { PlannerGoalMode, ProductLabelAnalysis, WeeklyMealPlan } from './src/types';
 
 dotenv.config();
 
@@ -496,6 +498,261 @@ app.post('/api/sync', (req, res) => {
       success: false,
       error: 'Lỗi khi đồng bộ dữ liệu với máy chủ.',
     });
+  }
+});
+
+// 5. Head-to-Head Product Comparison Endpoint (Supermarket A vs B)
+app.post('/api/compare-products', async (req, res) => {
+  try {
+    const body = req.body as { productA?: ProductLabelAnalysis; productB?: ProductLabelAnalysis };
+    const productA = body?.productA;
+    const productB = body?.productB;
+
+    if (!productA || !productB) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp đủ 2 sản phẩm để so sánh.' });
+    }
+
+    const baseline = compareTwoProducts(productA, productB);
+    const hasKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
+
+    if (hasKey) {
+      try {
+        const prompt = `
+Hãy so sánh đối đầu 2 sản phẩm siêu thị sau đây dành cho gia đình Việt (lưu ý trẻ nhỏ và phụ nữ mang thai):
+- Sản phẩm A: "${productA.productName}" (Điểm sạch: ${roundInt(productA.cleanScore)}/100, Thành phần: ${productA.rawIngredients.slice(0, 10).join(', ')}, Phụ gia: ${productA.additives.map((a) => `${a.code} ${a.name}`).join('; ') || 'Không có'}).
+- Sản phẩm B: "${productB.productName}" (Điểm sạch: ${roundInt(productB.cleanScore)}/100, Thành phần: ${productB.rawIngredients.slice(0, 10).join(', ')}, Phụ gia: ${productB.additives.map((a) => `${a.code} ${a.name}`).join('; ') || 'Không có'}).
+
+Viết 2-3 câu phán quyết ngắn gọn, khách quan bằng tiếng Việt chỉ rõ sản phẩm nào nên mua hơn dựa trên: lượng đường ẩn, phụ gia nhạy cảm (E407, E150c/d, E621, E627/E631, Aspartame), và mức độ siêu chế biến UPF.
+        `.trim();
+
+        const response = await Promise.race([
+          ai.models.generateContent({
+            model: 'gemini-4-hydrogen',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  verdictText: { type: Type.STRING },
+                },
+                required: ['verdictText'],
+              },
+            },
+          }),
+          timeoutPromise(8000),
+        ]);
+
+        if (response?.text) {
+          const parsed = JSON.parse(response.text) as { verdictText?: string };
+          if (parsed?.verdictText && parsed.verdictText.trim().length > 10) {
+            return res.json({
+              verdictText: parsed.verdictText.trim(),
+              comparison: baseline,
+              source: 'ai',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[Gemini] Compare fallback to deterministic criteria:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return res.json({
+      verdictText: baseline.summaryVerdict,
+      comparison: baseline,
+      source: 'local',
+    });
+  } catch (error) {
+    console.error('Error in /api/compare-products:', error);
+    return res.status(500).json({ error: 'Không thể so sánh sản phẩm lúc này.' });
+  }
+});
+
+// 6. AI 7-Day Vietnamese Meal Planner & Smart Grocery List Endpoint
+app.post('/api/generate-meal-plan', async (req, res) => {
+  try {
+    const body = req.body as { goalMode?: string; targetCalories?: number };
+    const goalMode: PlannerGoalMode =
+      body?.goalMode === 'lose_weight' || body?.goalMode === 'gain_muscle'
+        ? body.goalMode
+        : 'family_clean';
+    const targetCalories = Math.max(1200, Math.min(3800, roundInt(body?.targetCalories, 2000)));
+    const baseline = buildVietnameseWeeklyMealPlan(goalMode, targetCalories);
+    const hasKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
+
+    if (hasKey) {
+      try {
+        const goalDesc =
+          goalMode === 'lose_weight'
+            ? 'Giảm mỡ thâm hụt lành mạnh'
+            : goalMode === 'gain_muscle'
+            ? 'Tăng cơ giàu đạm'
+            : 'Ăn sạch cân bằng cho cả gia đình Việt';
+
+        const prompt = `
+Lập thực đơn 7 ngày (Thứ 2 đến Chủ Nhật) thuần món Việt ngon miệng (như Cá kho tộ, Canh chua, Ức gà áp chảo sốt mè, Phở bò thảo mộc, Bún chả giò hấp, Gỏi cuốn tôm thịt...) theo mục tiêu "${goalDesc}", mục tiêu ~${targetCalories} kcal/ngày.
+Mỗi ngày gồm đúng 4 bữa theo thứ tự slot: "breakfast" (Bữa Sáng), "lunch" (Bữa Trưa), "snack" (Bữa Phụ), "dinner" (Bữa Tối).
+Kèm danh sách đi chợ tổng hợp 10 nguyên liệu sạch cho cả tuần (category thuộc: "protein" | "produce" | "grains" | "pantry"). Mọi số liệu đều làm tròn số nguyên.
+        `.trim();
+
+        const response = await Promise.race([
+          ai.models.generateContent({
+            model: 'gemini-4-hydrogen',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  days: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        dayIndex: { type: Type.NUMBER },
+                        dayLabel: { type: Type.STRING },
+                        shortLabel: { type: Type.STRING },
+                        meals: {
+                          type: Type.ARRAY,
+                          items: {
+                            type: Type.OBJECT,
+                            properties: {
+                              slot: { type: Type.STRING },
+                              slotLabel: { type: Type.STRING },
+                              dishName: { type: Type.STRING },
+                              portionNote: { type: Type.STRING },
+                              calories: { type: Type.NUMBER },
+                              protein: { type: Type.NUMBER },
+                              fiber: { type: Type.NUMBER },
+                              carbs: { type: Type.NUMBER },
+                              fat: { type: Type.NUMBER },
+                            },
+                            required: ['slot', 'slotLabel', 'dishName', 'portionNote', 'calories', 'protein', 'fiber', 'carbs', 'fat'],
+                          },
+                        },
+                      },
+                      required: ['dayIndex', 'dayLabel', 'shortLabel', 'meals'],
+                    },
+                  },
+                  groceryList: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        name: { type: Type.STRING },
+                        quantity: { type: Type.STRING },
+                        category: { type: Type.STRING },
+                        categoryLabel: { type: Type.STRING },
+                      },
+                      required: ['name', 'quantity', 'category', 'categoryLabel'],
+                    },
+                  },
+                },
+                required: ['days', 'groceryList'],
+              },
+            },
+          }),
+          timeoutPromise(9500),
+        ]);
+
+        if (response?.text) {
+          const parsed = JSON.parse(response.text) as {
+            days?: Array<{
+              dayIndex: number;
+              dayLabel: string;
+              shortLabel: string;
+              meals: Array<{
+                slot: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+                slotLabel: string;
+                dishName: string;
+                portionNote: string;
+                calories: number;
+                protein: number;
+                fiber: number;
+                carbs: number;
+                fat: number;
+              }>;
+            }>;
+            groceryList?: Array<{
+              name: string;
+              quantity: string;
+              category: 'protein' | 'produce' | 'grains' | 'pantry';
+              categoryLabel: string;
+            }>;
+          };
+
+          if (Array.isArray(parsed?.days) && parsed.days.length === 7) {
+            const validDays = parsed.days.map((d, idx) => {
+              const safeMeals = Array.isArray(d.meals) && d.meals.length >= 4
+                ? d.meals.slice(0, 4).map((m, mIdx) => {
+                    const fallbackSlot = baseline.days[idx]?.meals[mIdx];
+                    return {
+                      slot: fallbackSlot?.slot || 'lunch',
+                      slotLabel: m.slotLabel || fallbackSlot?.slotLabel || 'Bữa ăn',
+                      dishName: m.dishName || fallbackSlot?.dishName || 'Món Việt cân bằng',
+                      portionNote: m.portionNote || fallbackSlot?.portionNote || '1 phần chuẩn',
+                      calories: Math.max(80, roundInt(m.calories, fallbackSlot?.calories || 450)),
+                      protein: Math.max(1, roundInt(m.protein, fallbackSlot?.protein || 25)),
+                      fiber: Math.max(1, roundInt(m.fiber, fallbackSlot?.fiber || 6)),
+                      carbs: Math.max(5, roundInt(m.carbs, fallbackSlot?.carbs || 50)),
+                      fat: Math.max(1, roundInt(m.fat, fallbackSlot?.fat || 14)),
+                    };
+                  })
+                : baseline.days[idx].meals;
+
+              return {
+                dayIndex: idx,
+                dayLabel: baseline.days[idx].dayLabel,
+                shortLabel: baseline.days[idx].shortLabel,
+                totalCalories: roundInt(safeMeals.reduce((s, m) => s + m.calories, 0)),
+                totalProtein: roundInt(safeMeals.reduce((s, m) => s + m.protein, 0)),
+                totalFiber: roundInt(safeMeals.reduce((s, m) => s + m.fiber, 0)),
+                meals: safeMeals,
+              };
+            });
+
+            const safeGroceries =
+              Array.isArray(parsed.groceryList) && parsed.groceryList.length >= 5
+                ? parsed.groceryList.map((g, gIdx) => {
+                    const cat =
+                      g.category === 'protein' || g.category === 'produce' || g.category === 'grains' || g.category === 'pantry'
+                        ? g.category
+                        : 'pantry';
+                    return {
+                      id: `ai-g-${gIdx + 1}`,
+                      name: g.name,
+                      quantity: g.quantity || '1 phần',
+                      category: cat,
+                      categoryLabel: g.categoryLabel || 'Nguyên liệu sạch',
+                      checked: false,
+                    };
+                  })
+                : baseline.groceryList;
+
+            const aiPlan: WeeklyMealPlan = {
+              goalMode,
+              goalTitle: baseline.goalTitle,
+              dailyCalorieTarget: targetCalories,
+              generatedAt: new Date().toISOString(),
+              source: 'ai',
+              days: validDays,
+              groceryList: safeGroceries,
+            };
+
+            return res.json(aiPlan);
+          }
+        }
+      } catch (err) {
+        console.warn('[Gemini] Meal planner fallback to local Vietnamese plan:', err instanceof Error ? err.message : err);
+      }
+    }
+
+    return res.json(baseline);
+  } catch (error) {
+    console.error('Error in /api/generate-meal-plan:', error);
+    const fallback = buildVietnameseWeeklyMealPlan('family_clean', 2000);
+    return res.json(fallback);
   }
 });
 

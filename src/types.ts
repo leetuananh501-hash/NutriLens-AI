@@ -116,3 +116,75 @@ export interface NutriRankInfo {
   passAdditivesAvoided: number;
   badges: NutriBadge[];
 }
+
+export type PlannerGoalMode = 'lose_weight' | 'family_clean' | 'gain_muscle';
+
+export interface PlannedMealSlot {
+  slot: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+  slotLabel: string;
+  dishName: string;
+  portionNote: string;
+  calories: number;
+  protein: number;
+  fiber: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface DayMealPlan {
+  dayIndex: number; // 0 = Thứ 2 ... 6 = Chủ Nhật
+  dayLabel: string;
+  shortLabel: string;
+  totalCalories: number;
+  totalProtein: number;
+  totalFiber: number;
+  meals: PlannedMealSlot[];
+}
+
+export interface GroceryItem {
+  id: string;
+  name: string;
+  quantity: string;
+  category: 'protein' | 'produce' | 'grains' | 'pantry';
+  categoryLabel: string;
+  checked: boolean;
+}
+
+export interface WeeklyMealPlan {
+  goalMode: PlannerGoalMode;
+  goalTitle: string;
+  dailyCalorieTarget: number;
+  generatedAt: string;
+  source: 'ai' | 'local';
+  days: DayMealPlan[];
+  groceryList: GroceryItem[];
+}
+
+export interface ProductComparisonCriteria {
+  sugarTeaspoons: number;
+  sugarLabel: string;
+  sugarRisk: 'low' | 'moderate' | 'high';
+  sensitiveAdditives: string[];
+  additivesCount: number;
+  highConcernCount: number;
+  upfLevel: 'minimal' | 'moderate' | 'ultra_processed';
+  upfLabel: string;
+  purityScore: number;
+}
+
+export interface ProductComparisonResult {
+  winner: 'A' | 'B' | 'TIE';
+  productA: ProductComparisonCriteria & {
+    badgeLabel: string;
+    badgeTone: 'buy' | 'consider' | 'warning';
+    reason: string;
+  };
+  productB: ProductComparisonCriteria & {
+    badgeLabel: string;
+    badgeTone: 'buy' | 'consider' | 'warning';
+    reason: string;
+  };
+  summaryVerdict: string;
+  familyAdvice: string;
+}
+

@@ -14,7 +14,8 @@ import {
   Lightbulb, 
   FlaskConical,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Scale
 } from 'lucide-react';
 import { ProductLabelAnalysis, ChemicalAdditive } from '../types';
 import { SAMPLE_LABELS, SampleLabelItem } from '../data/sampleData';
@@ -24,11 +25,13 @@ import { normalizeLabelNumbers, roundInt } from '../utils/numberFormat';
 interface LabelScannerProps {
   onSaveLabelAnalysis: (analysis: ProductLabelAnalysis) => void;
   savedLabelsHistory: ProductLabelAnalysis[];
+  onOpenProductCompare?: () => void;
 }
 
 export const LabelScanner: React.FC<LabelScannerProps> = ({
   onSaveLabelAnalysis,
   savedLabelsHistory,
+  onOpenProductCompare,
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imageMime, setImageMime] = useState<string>('image/jpeg');
@@ -341,16 +344,16 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
               <button
                 onClick={handleAnalyze}
                 disabled={isScanning || (!selectedImage && !productHint.trim())}
-                className="flex-1 flex items-center justify-center gap-2 py-3 px-5 text-xs sm:text-sm font-semibold text-[#FAF7F2] bg-[#C86446] hover:bg-[#B35235] disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all shadow-xs"
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 sm:px-5 text-xs sm:text-sm font-semibold text-[#FAF7F2] bg-[#C86446] hover:bg-[#B35235] disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all shadow-xs whitespace-nowrap"
               >
                 {isScanning ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                     <span>Đang giải mã phụ gia...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4 shrink-0" />
                     <span>Soi Nhãn & Đưa Khuyến Nghị</span>
                   </>
                 )}
@@ -389,9 +392,9 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
                   <button
                     onClick={handleAnalyze}
                     disabled={isScanning}
-                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50 whitespace-nowrap shrink-0"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                     Thử lại ngay
                   </button>
                   <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80">
@@ -538,7 +541,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
           {/* 4 Nutrition Red Flags Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div
-              className={`p-3 rounded-xl border text-xs ${
+              className={`p-3 rounded-xl border text-xs min-w-0 ${
                 analysisResult.nutritionAlerts.highSodium
                   ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300'
@@ -553,7 +556,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
             </div>
 
             <div
-              className={`p-3 rounded-xl border text-xs ${
+              className={`p-3 rounded-xl border text-xs min-w-0 ${
                 analysisResult.nutritionAlerts.highSugar
                   ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300'
@@ -568,7 +571,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
             </div>
 
             <div
-              className={`p-3 rounded-xl border text-xs ${
+              className={`p-3 rounded-xl border text-xs min-w-0 ${
                 analysisResult.nutritionAlerts.hasHiddenChemicals
                   ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300'
@@ -583,7 +586,7 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
             </div>
 
             <div
-              className={`p-3 rounded-xl border text-xs ${
+              className={`p-3 rounded-xl border text-xs min-w-0 ${
                 analysisResult.nutritionAlerts.transFat
                   ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 text-rose-800 dark:text-rose-300'
                   : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300'
@@ -692,10 +695,21 @@ export const LabelScanner: React.FC<LabelScannerProps> = ({
           )}
 
           {/* Action Bar */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-end gap-3">
+            {onOpenProductCompare && (
+              <button
+                type="button"
+                onClick={onOpenProductCompare}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-[#3D5C4E] dark:text-[#8FC2A6] bg-[#EBF3EE] dark:bg-[#17261E] border border-[#C8DFCC] dark:border-[#2B4636] rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap"
+              >
+                <Scale className="w-4 h-4 shrink-0" />
+                <span>So sánh đối đầu A vs B</span>
+              </button>
+            )}
+
             <button
               onClick={handleSaveToHistory}
-              className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all ${
+              className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-sm transition-all whitespace-nowrap ${
                 savedSuccess
                   ? 'bg-emerald-700'
                   : 'bg-amber-600 hover:bg-amber-700 active:scale-95'
